@@ -11,35 +11,30 @@ import scipy.optimize
 import numpy
 import gc
 
-P1D_ARRAY = []
-P1D_GOAL_ARRAY = []
 
-
-# This holds all the P1D data for a given D&D
 class P1D():
-    '''P1D objects hold information for a P1D state of down & distance
+    '''
+    P1D objects hold information for a P1D state of down & distance
     '''
 
     def __init__(self, down, distance):
-        self.DOWN = down
-        self.DISTANCE = distance
-        self.N = self.X = 0
-        self.P = [None, None, None]  # Probability with confidence interval
-        self.SMOOTHED = None
+        self.DOWN = numpy.int(down)
+        self.DISTANCE = numpy.int(distance)
+        self.N = numpy.float64(0)
+        self.X = numpy.float64(0)
+        self.P = numpy.array([None, None, None], dtype='Float64')  # Probability with confidence interval
 
     def binom(self):
         if self.X > 0:
             self.P[1] = self.X / self.N
             self.P[0] = Functions.BinomLow(self.X, self.N, Globals.CONFIDENCE)
             self.P[2] = Functions.BinomHigh(self.X, self.N, Globals.CONFIDENCE)
+        return None
 
 
-def Array_Declaration():
-    global P1D_ARRAY
-    global P1D_GOAL_ARRAY
-    P1D_ARRAY = [[P1D(down, distance) for distance in range(Globals.DISTANCE_LIMIT)] for down in range(4)]
-    P1D_GOAL_ARRAY = [[P1D(down, distance) for distance in range(Globals.DISTANCE_LIMIT)] for down in range(4)]
-    return None
+P1D_ARRAY = [[P1D(down, distance) for distance in range(Globals.DISTANCE_LIMIT)] for down in range(4)]
+P1D_GOAL_ARRAY = [[P1D(down, distance) for distance in range(Globals.DISTANCE_LIMIT)] for down in range(4)]
+
 
 def P1D_calculate():
     '''
@@ -64,14 +59,6 @@ def P1D_calculate():
         for distance in down:
             distance.binom()
 
-'''
-   comment this function
-   We're making all the P1D graphs, and doing it in a more organized way with
-   one-liner filters. The way we had before with all the iterative loops was a
-   nightmare. Eventually we need to include the plot figures themselves. We
-   also need a function
-'''
-
 
 def P1D_PLOTS():
     '''
@@ -80,17 +67,11 @@ def P1D_PLOTS():
     # TODO: This is a horrifying mess, please clean up.
     P1D_goal_plot = [[], [], [], []]
     P1D_formats = [['', '', '0th', ''],
-                   ['b', 'o', '1st', Functions.linearFit,
-                    ((-1, 0), (0, 1.5)),
-                    Functions.fitLabels(Functions.linearFit)],
-                   ['r', 's', '2nd', Functions.exponentialDecayFit,
-                    ((0, -numpy.inf, 0), (numpy.inf, 0, 0.5)),
-                    Functions.fitLabels(Functions.exponentialDecayFit)],
-                   ['y', '^', '3rd', Functions.exponentialDecayFit,
-                    ((0, -numpy.inf, 0), (numpy.inf, 0, 0.5)),
-                    Functions.fitLabels(Functions.exponentialDecayFit)]]
+                   ['b', 'o', '1st', Functions.linearFit, ((-1, 0), (0, 1.5)), Functions.fitLabels(Functions.linearFit)],
+                   ['r', 's', '2nd', Functions.exponentialDecayFit, ((0, -numpy.inf, 0), (numpy.inf, 0, 0.5)), Functions.fitLabels(Functions.exponentialDecayFit)],
+                   ['y', '^', '3rd', Functions.exponentialDecayFit, ((0, -numpy.inf, 0), (numpy.inf, 0, 0.5)), Functions.fitLabels(Functions.exponentialDecayFit)]]
 
-
+    # TODO: Make this a single graph with the three subplots stacked vertically, it'll be a lot cleaner to read
     for down in range(1, 4):
         xdata = numpy.array([x.DISTANCE for x in P1D_ARRAY[down] if x.N > Globals.THRESHOLD])
         ydata = numpy.array([x.P[1] for x in P1D_ARRAY[down] if x.N > Globals.THRESHOLD])
@@ -99,6 +80,7 @@ def P1D_PLOTS():
         fit = scipy.optimize.curve_fit(P1D_formats[down][3], xdata, ydata, bounds=P1D_formats[down][4])[0]
         r2 = Functions.RSquared(P1D_formats[down][3], fit, xdata, ydata)
         rmse = Functions.RMSE(P1D_formats[down][3], fit, xdata, ydata)
+
         plt.errorbar(xdata, ydata, yerr=error, ms=3, color=P1D_formats[down][0], fmt=P1D_formats[down][1])
         plt.plot(numpy.arange(0, Globals.DISTANCE_LIMIT, 0.1),
                  P1D_formats[down][3](numpy.arange(0, Globals.DISTANCE_LIMIT, 0.1), *fit),
@@ -142,9 +124,11 @@ def P1D_PLOTS():
     plt.show()
     return None
 
+
 def teamseason():
-    xdata = []
-    ydata = []
+    '''
+    This puts out three different graphs that use the logos to plot each team-season for P(1D) by offense, defense, and then for whole conferences
+    '''
     
     for season in range(2002, 2019):
         for team in Globals.CISTeams:
@@ -214,3 +198,4 @@ def teamseason():
     plt.savefig(("Figures/P(1D)/Conference P(1D) 1st vs 2nd"), dpi=1000)
     plt.show()
     gc.collect()
+    return None

@@ -104,7 +104,7 @@ def bootstrap(values, C):
     CLow = straplist[int(C * Globals.BOOTSTRAP_SIZE - 1)]
     CHigh = straplist[(1 - C) * Globals.BOOTSTRAP_SIZE]
     return [CLow, CHigh, straplist]
-
+ 
 
 def BootCompare(arrA, arrB):
     count = b = 0
@@ -118,68 +118,24 @@ def BootCompare(arrA, arrB):
     count /= Globals.BOOTSTRAP_SIZE**2
     return numpy.float64(count)
 
-# TODO: Put all these fits into one function called "fits" and then use ifs to pick the right one, with parameters a = None, b = none, etc)
-def linearFit(x, a, b):
-    '''
-    Returns a function of the form a*x+b
-    '''
-    return a * x + b
+
+functions_dict = {"linearFit": a * x + b,
+                  "exponentialDecayFit": a * numpy.exp(x * b) + c,
+                  "logarithmicFit": a * numpy.log(x + b) + c,
+                  "quadraticFit": a * x ** 2 + b * x + c,
+                  "reverseQuadraticFit": a * (x + b) ** 0.5 + c,
+                  "sigmoidFit": a / (b + numpy.exp(- c * x)),
+                  "inverseSigmoidFit": numpy.log(a / x + b) + c,
+                  "tangentFit": a * numpy.tan(b + x) + c,
+                  "cubicFit": a * x ** 3 + b * x ** 2 + c * x + d}
 
 
-def exponentialDecayFit(x, a, b, c):
+def fit_functions(model, x, a=0, b=0, c=0, d=0, e=0):
     '''
-    Returns a function of the form a*e^(x*b)+c
+    Put in a keyword and it give us back the function to go with, but this is a lot cleaner than using a zillion one-liners, now we just reference a dict
+    TODO: TBH we could probably just reference the dict directly
     '''
-    return a * numpy.exp(x * b) + c
-
-
-def logarithmicFit(x, a, b, c):
-    '''
-    Returns a function of the form a*ln(x+b)+c
-    '''
-    return a * numpy.log(x + b) + c
-
-
-def quadraticFit(x, a, b, c):
-    '''
-    Returns a function of the form a*x**2+b*x+c
-    '''
-    return a * x ** 2 + b * x + c
-
-
-def reverseQuadraticFit(x, a, b, c):
-    '''
-    Returns a function of the form a*(x+b)**0.5+c
-    '''
-    return a * (x + b) ** 0.5 + c
-
-
-def sigmoidFit(x, a, b, c):
-   '''
-   This returns a function of the form a/(b+e^-cx)
-   '''
-   return a / (b + 2.71828 ** (- c * x))
-    
-
-def inverseSigmoidFit(x, a, b, c):
-    '''
-    returns an inverse sigmoid function of the form ln(a/x+b)+c
-    '''
-    return numpy.log(a / x + b) + c
-
-
-def tangentFit(x, a, b, c):
-    '''
-    Returns a function of the form a*tan(b+x)+c
-    '''
-    return a * numpy.tan(b + x) + c
-
-
-def cubicFit(x, a, b, c, d):
-    '''
-    returns a function of the form a*x^3+b*x^2+c*x+d
-    '''
-    return a * x ** 3 + b * x ** 2 + c * x + d
+    return(models_dict[model])
 
 
 def RMSE(func, params, xdata, ydata):
@@ -223,32 +179,30 @@ def ordinals(num):
     return "ordinals error, wtf?"
 
 
+labels_dict = {"linearFit": r"$y={0:5.4f}*x+{1:5.4f}$" + "\n" + "$R^2={2:5.4f}, RMSE={3:5.4f}$",
+               "quadraticFit": r"$y={0:5.4f}*x^2+{1:5.4f}*x+{2:5.4f}$" + "\n" + r"$R^2={3:5.4f}, RMSE={4:5.4f}$",
+               "exponentialDecayFit": r"$y={0:5.4f}*e^({1:5.4f}*x)+{2:5.4f}$" + "\n" + r"$R^2={3:5.4f}$, $RMSE={4:5.4f}$",
+               "logarithmicFit": r"$y={0:5.4f}*ln({1:5.4f}+x)+{2:5.4f}$" + "\n" + "$R^2={3:5.4f}, RMSE={4:5.4f}$",
+               "reverseQuadraticFit": r"$y={0:5.4f}*(x+{1:5.4f}^(0.5)+{2:5.4f}$" + "\n" + "$R^2={3:5.4f}, RMSE={4:5.4f}$",
+               "sigmoidFit": r"$y={0:5.4f}/({1:5.4f} + e^(-{2:5.4f}*x))$" + "\n" + "$R^2={3:5.4f}, RMSE={4:5.4f}$",
+               "tangentFit": r"$y={0:5.4f}*tan({1:5.4f}+x)+{2:5.4f}$" + "\n" + "$R^2={3:5.4f}, RMSE={4:5.4f}$",
+               "inverseSigmoidFit": r"$y=ln({0:5.4f}/x+{1:5.4f})+{2:5.4f}$" + "\n" + "$R^2={3:5.4f}, RMSE={4:5.4f}$",
+               "cubicFit": r"$y={0:5.4f}*x^3+{1:5.4f}*x^2+{2:5.4f}*x+{3:5.4f}$" + "\n" + "$R^2={4:5.4f}, RMSE={5:5.4f}$"}
+
+
 def fitLabels(func):
     '''
-    Returns a formatted string to give the label of a function from those used above, with R2 and RMSE
+    Returns a formatted string to give the label of a function from those used above, with R2 and RMSE.
+    References a dict to be much easier to look up
+    TODO: TBH we could probably just call the dict directly
     '''
-    if func == linearFit:
-        return r"$y={0:5.4f}*x+{1:5.4f}$" + "\n" + "$R^2={2:5.4f}, RMSE={3:5.4f}$"
-    elif func == quadraticFit:
-        return r"$y={0:5.4f}*x^2+{1:5.4f}*x+{2:5.4f}$" + "\n" + r"$R^2={3:5.4f}, RMSE={4:5.4f}$"
-    elif func == exponentialDecayFit:
-        return r"$y={0:5.4f}*e^({1:5.4f}*x)+{2:5.4f}$" + "\n" + r"$R^2={3:5.4f}$, $RMSE={4:5.4f}$"
-    elif func == logarithmicFit:
-        return r"$y={0:5.4f}*ln({1:5.4f}+x)+{2:5.4f}$" + "\n" + "$R^2={3:5.4f}, RMSE={4:5.4f}$"
-    elif func == reverseQuadraticFit:
-        return r"$y={0:5.4f}*(x+{1:5.4f}^(0.5)+{2:5.4f}$" + "\n" + "$R^2={3:5.4f}, RMSE={4:5.4f}$"
-    elif func == sigmoidFit:
-        return r"$y={0:5.4f}/({1:5.4f} + e^(-{2:5.4f}*x))$" + "\n" + "$R^2={3:5.4f}, RMSE={4:5.4f}$"
-    elif func == tangentFit:
-        return r"$y={0:5.4f}*tan({1:5.4f}+x)+{2:5.4f}$" + "\n" + "$R^2={3:5.4f}, RMSE={4:5.4f}$"
-    elif func == inverseSigmoidFit:
-        return r"$y=ln({0:5.4f}/x+{1:5.4f})+{2:5.4f}$" + "\n" + "$R^2={3:5.4f}, RMSE={4:5.4f}$"
-    elif func == cubicFit:
-        return r"$y={0:5.4f}*x^3+{1:5.4f}*x^2+{2:5.4f}*x+{3:5.4f}$" + "\n" + "$R^2={4:5.4f}, RMSE={5:5.4f}$"
-    return "fitLabels error" # Catchall escape
+    return labels_dict[func]
 
 
 def imscatter(x, y, image, ax=None, zoom=1):
+    '''
+    Use this to create a graph with logos on it based on images
+    '''
     if ax is None:
         ax = plt.gca()
     try:

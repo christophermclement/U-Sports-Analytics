@@ -16,19 +16,19 @@ class stadium():
     '''
     
     def __init__(self, name, city, province, home_teams, surface, capacity, GPS, orientation, elevation, airport, full_end_zones, TZCode, isDome):
-        self.name = name
-        self.city = city
-        self.province = province
-        self.home_teams = home_teams
-        self.surface = surface
-        self.capacity = capacity
-        self.GPS = GPS
-        self.orientation = orientation
-        self.elevation = elevation
-        self.airport = airport
-        self.full_end_zones = full_end_zones
-        self.TZCode = TZCode
-        self.isDome = isDome
+        self.name = name  # Name of the stadium
+        self.city = city  # City in which the stadium is located
+        self.province = province  # Province in which the stadium is located
+        self.home_teams = home_teams  # List of the teams that call this stadium home
+        self.surface = surface  # Natural v turf and type of turf. TODO: Consider swapping this for a boolean "isNatural"
+        self.capacity = capacity  # Seating capacity of the stadium, often approx due to renovations, etc.
+        self.GPS = GPS  # Lat/Long of midfield, we could stand to cut down one decimal point but w/e
+        self.orientation = orientation  # True bearing orientation of the long axis of the field, using the more northerly angle
+        self.elevation = elevation  # Elevation above sea level in m
+        self.airport = airport  # Gives the nearest airport code to use the proper METAR data
+        self.full_end_zones = full_end_zones  # True if the end zones are full sized, false if they are cut off (not full length, corners cut bc of track, etc.
+        self.TZCode = TZCode  # Gives the appropriate code to handle time zones
+        self.isDome = isDome  # True if it's a domed stadium
 
 stadium_list =\
 [['Oland Stadium', 'Antigonish', 'NS', ['SFX'], 'FieldTurf', 4000, [45.616639, -61.994972], 359, 195, 'CYYG', False, "America/Halifax", False],
@@ -77,7 +77,7 @@ stadium_list =\
 
 stadia = {x[0] : stadium(*x) for x in stadium_list}
 
-high_accuracy = False
+high_accuracy = False  # This is a quick boolean to drastically reduce the degree of precision of our modeling for testing purposes
 if high_accuracy:
     BOOTSTRAP_SIZE = 1000  # Number of bootstrap iterations to use
     forest_trees = 1000
@@ -90,9 +90,7 @@ else:
     KFolds = 3
 
 
-# The one-sided confidence interval size for all statistical tests
-CONFIDENCE = 0.025
-
+CONFIDENCE = 0.025  # The one-sided confidence interval size for all statistical tests
 THRESHOLD = 100  # The minimum N to include in the graphs
 DISTANCE_LIMIT = 51  # This is the max size of P(1D), etc. we're accepting. Usually 26 (meaning 25) but we'll try with longer ones.
 
@@ -104,13 +102,6 @@ score_values = {"FG": numpy.array([None, 3.0, None], dtype=numpy.dtype('Float64'
                 "TD": numpy.array([None, 7.0, None], dtype=numpy.dtype('Float64')),
                 "HALF": numpy.array([None, 0.0, None], dtype=numpy.dtype('Float64'))}
 
-'''
-SCOREvals = numpy.array([[None, 3.0, None],  # FG
-                         [None, 1.0, None],  # Rouge
-                         [None, -2.0, None],  # Safety
-                         [None, 7.0, None],  # TD
-                         [None, 0.0, None]], dtype='Float64')# Half
-'''
 
 gamelist = []  # The gamelist holds all the games
 
@@ -119,9 +110,7 @@ DummyArray = numpy.full(BOOTSTRAP_SIZE, -100, dtype='int32')
 
 passerList = []
 receiverList = []
-
-# Deprecated because I made Functions.ordinals, so everything should refer to that instead.
-# ordinals = ["0th", "1st", "2nd", "3rd", "4th"]  # It's just handy to have these
+tacklerList= []
 
 CISTeams = ["SFX", "SMU", "ACA", "MTA", "BIS",
             "SHE", "LAV", "MON", "CON", "MCG",

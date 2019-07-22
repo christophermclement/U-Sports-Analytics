@@ -14,20 +14,21 @@ import Classes.EPClass as EPClass
 import Classes.PuntClass as PuntClass
 import Classes.FGClass as FGClass
 
-THIRD_DOWN_ARRAY = []
-
 
 class THIRD_DOWN():
+    '''
+    This contains the idea of a given down, distance, field position for third down decision-making.
+    # TODO: It needs to refer to objects for punt, field goal, and P(1D), and should refer to THOSE objects, and not just pull the values
+    '''
     def __init__(self, distance, ydline):
-        self.DISTANCE = distance
-        self.YDLINE = ydline
+        self.DISTANCE = numpy.int(distance)
+        self.YDLINE = numpy.int(ydline)
 
-        self.PUNT = None
-        self.PUNT_BOOTSTRAP = Globals.DummyArray
-        self.PUNT_HIGH = self.PUNT_LOW = None
-
-        self.FIELDGOAL = self.FIELDGOAL_LOW = self.FIELDGOAL_HIGH = None
-        self.FIELDGOAL_BOOTSTRAP = Globals.DummyArray
+        # Referring to the component objects
+        self.PUNT = PuntClass.PUNT_ARRAY[self.YDLINE]
+        self.FIELDGOAL = FGClass.FG_ARRAY[self.YDLINE]
+        
+        # TODO: To get the proper P(1D) Object we need to go through the whole process of checking for &Goal
 
         self.SAFETY = self.SAFETY_LOW = self.SAFETY_HIGH = None
         self.SAFETY_BOOTSTRAP = None
@@ -93,6 +94,7 @@ class THIRD_DOWN():
         self.FIELDGOAL_LOW = FGClass.FG_ARRAY[self.YDLINE].EP_LOW
         self.FIELDGOAL_HIGH = FGClass.FG_ARRAY[self.YDLINE].EP_HIGH
         self.FIELDGOAL_BOOTSTRAP = FGClass.FG_ARRAY[self.YDLINE].BOOTSTRAP
+        return None
 
     def boot(self):
         if self.YDLINE > 0 and 0 < self.DISTANCE <= self.YDLINE and self.YDLINE - self.DISTANCE < 100:
@@ -104,6 +106,7 @@ class THIRD_DOWN():
                 numpy.repeat(self.FAIL_BOOTSTRAP, Globals.BOOTSTRAP_SIZE, axis=0)
             self.GOFORIT_BOOTSTRAP = (self.CONVERT_BOOTSTRAP*poned + ((poned + (-1)) * self.FAIL_BOOTSTRAP))
             self.GOFORIT_BOOTSTRAP = numpy.sort(numpy.mean(self.GOFORIT_BOOTSTRAP.reshape(-1, Globals.BOOTSTRAP_SIZE), 1, dtype='f4'))
+        return None
 
     def compare(self):
         if self.YDLINE > 0 and 0 < self.DISTANCE <= self.YDLINE and self.YDLINE - self.DISTANCE < 100:
@@ -127,24 +130,14 @@ class THIRD_DOWN():
                                                       self.SAFETY_BOOTSTRAP)
             self.SAFETYvsKICK = 1 - self.KICKvsSAFETY
 
-            self.GOvsALL = (self.GOvsPUNT + self.GOvsKICK +
-                            self.GOvsSAFETY) / 3
-            self.SAFETYvsALL = (self.SAFETYvsGO + self.SAFETYvsPUNT +
-                                self.SAFETYvsKICK) / 3
-            self.PUNTvsALL = (self.PUNTvsGO + self.PUNTvsKICK +
-                              self.PUNTvsSAFETY) / 3
-            self.KICKvsALL = (self.KICKvsGO + self.KICKvsPUNT +
-                              self.KICKvsSAFETY) / 3
+            self.GOvsALL = (self.GOvsPUNT + self.GOvsKICK + self.GOvsSAFETY) / 3
+            self.SAFETYvsALL = (self.SAFETYvsGO + self.SAFETYvsPUNT + self.SAFETYvsKICK) / 3
+            self.PUNTvsALL = (self.PUNTvsGO + self.PUNTvsKICK + self.PUNTvsSAFETY) / 3
+            self.KICKvsALL = (self.KICKvsGO + self.KICKvsPUNT + self.KICKvsSAFETY) / 3
+        return None
 
 
-def Array_Declaration():
-    global THIRD_DOWN_ARRAY
-    THIRD_DOWN_ARRAY = []
-    for distance in range(Globals.DISTANCE_LIMIT + 1):
-        temp = []
-        for yardline in range(110):
-            temp.append(THIRD_DOWN(distance, yardline))
-        THIRD_DOWN_ARRAY.append(temp)
+THIRD_DOWN_ARRAY = [[THIRD_DOWN(distance, yardline) for yardline in range(110)] for distance in range (Globals.DISTANCE_LIMIT)]
 
 
 def ThirdDown_calculate():

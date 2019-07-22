@@ -147,12 +147,12 @@ def parser():
                 play.TACKLER_FN()
                 play.PASSER_FN()  # Dependent on RP
                 play.RECEIVER_FN()  # Dependent on RP
+            game.OffIsHome_FN()  # No dependencies
             game.DEFENSE_FN()  # No dependencies
             game.O_D_SCORE_FN()  # No dependencies
             game.O_D_TO_FN()  # No dependencies
             game.O_WIN_FN()  # No dependencies
             game.TIME_FN()  # No dependencies
-            game.OffIsHome_FN()  # No dependencies
             game.SCORING_PLAY_FN()
             game.P1D_INPUT_FN()  # Dependent on Down, Distance, FPOS, Defense
             game.EP_INPUT_FN()  # Dependent on scoring play, Defense, O/D Score
@@ -348,8 +348,6 @@ DRAW_PLOTS = True
 '''
 TODO: Make these one-liners in __main__
 '''
-P1DClass.Array_Declaration()
-ThirdDownClass.Array_Declaration()
 KOClass.Array_Declaration()
 PuntClass.array_declaration()
 
@@ -364,7 +362,7 @@ redraw_plots()
 '''
 print (sorted(Globals.passerList), len(Globals.passerList))
 print (sorted(Globals.receiverList), len(Globals.receiverList))
-print (sorted(Globals.receiverList), len(Globals.tacklerList))
+print (sorted(Globals.tacklerList), len(Globals.tacklerList))
 # TODO: Clean up and render consistent the names used for players.
 The receiver column also needs some improved parsing to get rid of some
 extraneous crap. Un-comment these lines and those in the functions to see
@@ -377,7 +375,7 @@ print("ALL DONE", Functions.timestamp())
 '''
 # TODO: Convert all references to Globals.SCOREvals to the new dict, and fix up the tricky shit.
 
-# TODO: Consider changing all float64 to float128, because why the fuck not
+# TODO: Consider changing all float64 to longdouble, because why the fuck not
 
 # TODO: rename the stuff like EP_models to make more sense, and create the parallel EP_classification and EP_regression, do the same for FG
 
