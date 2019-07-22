@@ -38,15 +38,15 @@ class game():
         self.AWAY = self.game_statement[0:3]
         self.HOME = self.game_statement[8:11]
         self.H_WIN = None  # If the home team wins the game
-        self.H_FINAL = None  # Final score of them game
+        self.H_FINAL = None  # Final score of the game
         self.A_FINAL = None
-        self.LEAGUE = None
+        self.LEAGUE = None  # Always "U Sports", but exists for future compatibility
         self.CONFERENCE = None  # The conference in which the game was played
-        self.game_date = None
-        self.stadium = None
-        self.METARList = []
+        self.game_date = None  # A datetime object for when the game was played
+        self.stadium = None  # What stadium the game was played, refers to a stadium object
+        self.METARList = [] #  List of all the METARs during the game
         '''
-        The season in whichthe game was played, always same as YEAR for
+        The season in which the game was played, always same as YEAR for
         Canadian football, as seasons don't span over New Year's Day, exists
         for compatibility with other leagues in the future
         '''
@@ -61,14 +61,13 @@ class game():
         except Exception:
             print("Stadium Error", self.game_statement)
         try:
-            self.game_date = datetime.datetime(int(self.game_statement[12:16]),
-                                               int(self.game_statement[17:19]),
-                                               int(self.game_statement[20:22]),
-                                               int(self.game_statement[23:25]),
-                                               int(self.game_statement[25:27]))
+            self.game_date = datetime.datetime(int(self.game_statement[12:16]),  # Year
+                                               int(self.game_statement[17:19]),  # Month
+                                               int(self.game_statement[20:22]),  # Day
+                                               int(self.game_statement[23:25]),  # Hour
+                                               int(self.game_statement[25:27]))  # Day
             # Fixes the time zone issue
-            self.game_date = pytz.timezone(self.stadium.TZCode).\
-                localize(self.game_date)
+            self.game_date = pytz.timezone(self.stadium.TZCode).localize(self.game_date)
         except Exception:
             print("game date error", self.game_statement)
         self.game_date = self.game_date.astimezone(pytz.utc)
@@ -79,8 +78,7 @@ class game():
         # These are to determine the conference of a game
         # These two conferences always have the same teams
         CWUAA = ["MAN", "SKH", "REG", "ALB", "CGY", "UBC", "SFU"]
-        OUA = ["CAR", "OTT", "QUE", "TOR", "YRK", "MAC",
-               "GUE", "WAT", "WLU", "WES", "WIN"]
+        OUA = ["CAR", "OTT", "QUE", "TOR", "YRK", "MAC", "GUE", "WAT", "WLU", "WES", "WIN"]
 
         # Because Bishop's changed conferences in 2016 we need to adapt
         # Should this be a separate method?
@@ -242,31 +240,34 @@ class game():
 
     def DEFENSE_FN(self):
         '''
-        Match the offense to the home or away team and set the D to the other
-        for each play object in the playlist
+        Match the offense to the home or away team and set the D to the other for each play object in the playlist
         '''
+        
         for play in self.playlist:
+            play.DEFENSE = self.AWAY if play.offIsHome else self.HOME
+            '''
+            TODO: If the above works then delete this
             if play.OFFENSE == self.HOME:
                 play.DEFENSE = self.AWAY
             elif play.OFFENSE == self.AWAY:
                 play.DEFENSE = self.HOME
             else:  # If it's not home and it's not away something is wrong
                 print("DEFENSE ERROR", self.MULE, play.playdesc)
+            '''
         return None
 
     def O_D_SCORE_FN(self):
         '''
         Match O to H or A and set scores accordingly for plays in playlist
+        TODO: Could we maybe make this into a length 2 list? Same for Home/Away, Off/Def, HA Score, timeouts? If so we can actually just compare the lists and then use reverse if offIsHome is False
         '''
         for play in self.playlist:
-            if play.OFFENSE == self.HOME:
+            if play.offIsHome:
                 play.O_SCORE = play.HOME_SCORE
                 play.D_SCORE = play.AWAY_SCORE
-            elif play.OFFENSE == self.AWAY:
+            else:
                 play.O_SCORE = play.AWAY_SCORE
                 play.D_SCORE = play.HOME_SCORE
-            else:  # If it's not one way or the other something is wrong
-                print("O/D SCORE ERROR", self.MULE, play.playdesc)
             play.O_LEAD = play.O_SCORE - play.D_SCORE
         return None
 
@@ -284,17 +285,27 @@ class game():
         return None
 
     def O_WIN_FN(self):
+        '''
+        Returns True if the current offensive team wins
+        '''
         for play in self.playlist:
             # Match offense to home or away and set the win accordingly
-            if play.OFFENSE == self.HOME:
+            play.O_WIN = not(play.O_WIN ^ self.H_WIN)
+            '''
+            TODO: If the above works then get rid of this
+            if play.offIsHome:
                 play.O_WIN = self.H_WIN
-            elif play.OFFENSE == self.AWAY:
+            else:
                 play.O_WIN = not(self.H_WIN)
             else:
                 print("O WIN ERROR", self.MULE, x.playdesc)
+            '''
         return None
 
     def TIME_FN(self):
+        '''
+        Gets us the amount of time remaining in the game, in seconds, by splining between the known clock statements and quarter starts
+        '''
         self.playlist[0].TIME = 3600  # Opening kickoff is at 15:00
         try:
             # First loop through converts the clock statements to time
@@ -327,6 +338,9 @@ class game():
         return None
 
     def SCORING_PLAY_FN(self):
+        '''
+        Identifies scoring plays and the team that scores them
+        '''
         # Need to find all the plays with scores
         try:
             for p, play in enumerate(self.playlist):
@@ -376,7 +390,9 @@ class game():
         return None
 
     def P1D_INPUT_FN(self):
-        # TODO: Make this pythonic
+        '''
+        Returns True if the offense ends up converting a first down within the drive
+        '''
         for play in self.playlist:
             if play.ODK == "OD":  # We only care about P(1D) for OD plays
                 if play.DOWN > 0:  # We don't care about 2-pt conversions
@@ -425,7 +441,9 @@ class game():
         return None
 
     def EP_INPUT_FN(self):
-        # TODO: Make this pythonic
+        '''
+        For each play gives the next type of score and whether the current offensive team will be the scoring team
+        '''
         for play in self.playlist:  # Loop through the playlist
             # Looping through all the plays going forward
             for nextPlay in self.playlist[self.playlist.index(play):]:
@@ -434,17 +452,24 @@ class game():
                     play.next_score = nextPlay.score_play
                     try:
                         play.next_score_is_off = not(play.OffIsHome ^ nextPlay.OffIsHome) * nextPlay.score_play_is_off
-                    except Exception:
+                    except Exception:  # Handles "HALF"
                         play.next_score_is_off = False
                     break
         return None
 
     def OffIsHome_FN(self):
+        '''
+        returns True if the current offense is the home team
+        '''
         for play in self.playlist:
             play.OffIsHome = (play.OFFENSE == self.HOME)
         return None
 
     def realTime_FN(self):
+        '''
+        Determines the actual time of day of each play, in Zulu
+        Estimates the length of the game and splines along it.
+        '''
         if self.playlist[-1].QUARTER == 4:
             for p, play in enumerate(self.playlist):
                 if play.QUARTER < 3:
@@ -472,6 +497,9 @@ class game():
         return None
 
     def METARList_FN(self):
+        '''
+        Goes through the appropriate CSV to get the METARs appropriate to that game, accounting for the time zone and Zulu time
+        '''
         try:
             if self.stadium.isDome:
                 startMETAR = self.stadium.airport + " "\
@@ -527,6 +555,9 @@ class game():
         return None
 
     def playMETAR_FN(self):
+        '''
+        Goes through METAR list for the game and finds the one tha's time-stamped nearest to that game
+        '''
         try:
             for play in self.playlist:
                 for M, METAR in enumerate(self.METARList):
@@ -538,12 +569,14 @@ class game():
                             play.METAR = self.METARList[M - 1]
                         break
         except Exception as err:
-            print("METAR Error", self.MULE, play.playdesc,
-                  self.stadium.airport, str(self.game_date.year))
+            print("METAR Error", self.MULE, play.playdesc, self.stadium.airport, str(self.game_date.year))
             print(err)
         return None
 
     def puntNet_FN(self):
+        '''
+        Calculates the net yardage of a punt play, just looking at the yardline of the current and next play
+        '''
         try:
             for p, play in enumerate(self.playlist):
                 if play.ODK == "P":
@@ -596,6 +629,11 @@ class game():
         return None
 
     def EPA_FN(self):
+        '''
+        Gets the EPA of a play based on this play and the next, factoring in scoring plays and such.
+        TODO: Rework with the new system for handling EP_INPUT
+        TODO: Rework with the new system of EP classification/regression models
+        '''
         try:
             for p, play in enumerate(self.playlist):
                 if play == self.playlist[-1] and play.SCORING_PLAY is None:  # End of game
@@ -641,6 +679,10 @@ class game():
         return None
 
     def WPA_FN(self):
+        '''
+        Gets the WPA betrween each play and the next
+        TODO: Rework this into something tidier?
+        '''
         try:
             for p, play in enumerate(self.playlist):
                 if play == self.playlist[-1]:  # End of game

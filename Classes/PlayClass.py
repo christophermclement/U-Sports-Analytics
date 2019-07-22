@@ -290,8 +290,7 @@ class play():
 
     def YDLINE_FN(self):
         '''
-        Converting FPOS into YDLINE, which has no sign, it is simply yards from
-        goal line.
+        Converting FPOS into YDLINE, which has no sign, it is simply yards from goal line.
         '''
         try:
             if self.FPOS > 0:  # Simple conversion from FPOS tro YDLINE
@@ -411,6 +410,9 @@ class play():
         return None
 
     def KOGross_FN(self):
+        '''
+        Gets the gross gain of the kickoff using some string interpretation
+        '''
         try:
             if self.ODK == "KO":
                 if self.score_play == "ROUGE" and self.score_play_is_off:
@@ -440,6 +442,7 @@ class play():
     def EP_wipe(self):
         '''
         Wipes all the EP-related variables so we can simplify the pickling
+        TODO: Clean this up with the new approach to EP models
         '''
         self.raw_EP = None
         self.EP_probs_list = []
@@ -447,10 +450,18 @@ class play():
         return None
 
     def WP_wipe(self):
+        '''
+        Wipes the WP_list
+        TODO: Clean this up with the new approach to modeling
+        '''
         self.WP_list = []
         return None
 
     def EP_assign(self):
+        '''
+        Gets the EP value of the play by converting from the classification probabilities
+        TODO: Fix this with the new way we handle score counts and values
+        '''
         play.EPA_list = [(0
             - probs[0] * Globals.SCOREvals[0][1]
             - probs[1] * Globals.SCOREvals[1][1]
@@ -473,6 +484,10 @@ class play():
         return None
 
     def FG_wipe(self):
+        '''
+        Wipes the FG model results
+        TODO: Make sure that this is compatible with the way we do the modeling now
+        '''
         self.FG_classification_list = []
         self.FG_regression_list = []
         return None
