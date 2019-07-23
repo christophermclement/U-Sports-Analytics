@@ -119,23 +119,25 @@ def BootCompare(arrA, arrB):
     return numpy.float64(count)
 
 
-functions_dict = {"linearFit": a * x + b,
-                  "exponentialDecayFit": a * numpy.exp(x * b) + c,
-                  "logarithmicFit": a * numpy.log(x + b) + c,
-                  "quadraticFit": a * x ** 2 + b * x + c,
-                  "reverseQuadraticFit": a * (x + b) ** 0.5 + c,
-                  "sigmoidFit": a / (b + numpy.exp(- c * x)),
-                  "inverseSigmoidFit": numpy.log(a / x + b) + c,
-                  "tangentFit": a * numpy.tan(b + x) + c,
-                  "cubicFit": a * x ** 3 + b * x ** 2 + c * x + d}
-
 
 def fit_functions(model, x, a=0, b=0, c=0, d=0, e=0):
     '''
     Put in a keyword and it give us back the function to go with, but this is a lot cleaner than using a zillion one-liners, now we just reference a dict
     TODO: TBH we could probably just reference the dict directly
     '''
+    functions_dict = {"linearFit": a * x + b,
+                      "exponentialDecayFit": a * numpy.exp(x * b) + c,
+                      "logarithmicFit": a * numpy.log(x + b) + c,
+                      "quadraticFit": a * x ** 2 + b * x + c,
+                      "reverseQuadraticFit": a * (x + b) ** 0.5 + c,
+                      "sigmoidFit": a / (b + numpy.exp(- c * x)),
+                      "inverseSigmoidFit": numpy.log(a / x + b) + c,
+                      "tangentFit": a * numpy.tan(b + x) + c,
+                      "cubicFit": a * x ** 3 + b * x ** 2 + c * x + d}
+
     return(models_dict[model])
+
+
 
 
 def RMSE(func, params, xdata, ydata):

@@ -10,11 +10,11 @@ import pickle  # To save objects to avoid recalculating every time
 import numpy
 import Classes.GameClass
 from Classes import P1DClass
-from Classes import ThirdDownClass
 from Classes import KOClass
 from Classes import PuntClass
 from Classes import FGClass
 from Classes import EPClass
+from Classes import ThirdDownClass
 import Functions
 import WP
 import Globals
@@ -348,8 +348,6 @@ DRAW_PLOTS = True
 '''
 TODO: Make these one-liners in __main__
 '''
-KOClass.Array_Declaration()
-PuntClass.array_declaration()
 
 reparse()
 EPClass.EP_regression()

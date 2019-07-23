@@ -8,7 +8,6 @@ import Globals
 import numpy
 import Classes.EPClass as EPClass
 import Functions
-KO_ARRAY = []
 
 
 class KO():
@@ -49,13 +48,8 @@ class KO():
         self.EP_ARRAY = []
         self.BOOTSTRAP = None
 
-def Array_Declaration():
-    '''
-    Honestly this is one line, can we just have it in __main__ and not need to
-    call it?
-    '''
-    global KO_ARRAY
-    KO_ARRAY = [KO(yardline) for yardline in range(110)]
+
+KO_ARRAY = [KO(yardline) for yardline in range(110)]    
 
 
 def KO_wipe():

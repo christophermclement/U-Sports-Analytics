@@ -16,20 +16,9 @@ import sklearn.ensemble
 import sklearn.neural_network
 import scipy.optimize
 from sklearn.model_selection import KFold
-import gc
-import csv
-import pickle
 
-EP_models = []
-# Logit is a shitty EP model
-#EP_models.append(sklearn.linear_model.LogisticRegression(multi_class='multinomial', solver='saga', max_iter=1000))
-# k-NN is an effective and cheap EP model but we don't need it
-EP_models.append(sklearn.neighbors.KNeighborsClassifier())
-# RF is a shitty EP model
-#EP_models.append(sklearn.ensemble.RandomForestClassifier(n_estimators=Globals.forest_trees, n_jobs=-1))
-EP_models.append(sklearn.neural_network.MLPClassifier(max_iter=1000, hidden_layer_sizes=Globals.neural_network, warm_start=True))
-# GBC is a brutally slow model that's maybe a hair better than MLP, if at all
-EP_models.append(sklearn.ensemble.GradientBoostingClassifier(n_estimators=Globals.forest_trees, warm_start=True))
+import csv
+
 
 class EP():
     '''
@@ -41,13 +30,19 @@ class EP():
         self.DOWN = down
         self.DISTANCE = distance
         self.YDLINE = yardline
-        self.N = 0
-        self.X = 0
-        self.EP = [None, None, None]
-        self.SMOOTHED = None  # TODO: Do we even use this anywhere?
+        self.EP = numpy.array([None, None, None], dtype = 'Float64')
+        # self.SMOOTHED = None  # TODO: Do we even use this anywhere?
 
         # These are in the standard order
-        self.Score_Counts = [0, 0, 0, 0, 0, 0, 0, 0, 0]
+        self.Score_Counts = {("FG", True): 0,
+                             ("FG", False): 0,
+                             ("ROUGE", True): 0,
+                             ("ROUGE", False): 0,
+                             ("SAFETY", True): 0,
+                             ("SAFETY", False): 0,
+                             ("TD", True): 0,
+                             ("TD", False): 0,
+                             ("HALF", False): 0}
         self.P_Scores = [[None, None, None],
                          [None, None, None],
                          [None, None, None],
@@ -62,25 +57,25 @@ class EP():
         self.EP_probs_list = []
         self.EP_list = []
 
-        self.temp_EP_probs = numpy.asarray([[0 for x in range(9)] for y in EP_models], dtype=float)
-        self.temp_EP = [0 for x in EP_models]
+        #self.temp_EP_probs = numpy.asarray([[0 for x in range(9)] for y in EP_models], dtype=float)
+        #self.temp_EP = [0 for x in EP_models]
         self.count = 0
-        return None
 
     def binom(self):
         '''
         Finds the binomial confidence intervals for each score probability
+        TODO: no more self.N
         '''
         if self.N > 0:
             for x in range(9):
                 self.P_Scores[x][1] = self.Score_Counts[x] / self.N
                 self.P_Scores[x][0] = Functions.BinomLow(self.Score_Counts[x], self.N, Globals.CONFIDENCE)
                 self.P_Scores[x][2] = Functions.BinomHigh(self.Score_Counts[x], self.N, Globals.CONFIDENCE)
-        return None
 
     def boot(self):
         '''
         Bootstraps a confidence interval for our EP value
+        TODO: Fix this with the new system
         '''
         if self.N > 10:
             self.BOOTSTRAP =\
@@ -100,21 +95,216 @@ class EP():
             self.EP = [self.BOOTSTRAP[int(Globals.BOOTSTRAP_SIZE * Globals.CONFIDENCE - 1)],
                        multiply_SCOREvals([prob / self.N for prob in self.Score_Counts]),
                        self.BOOTSTRAP[int(Globals.BOOTSTRAP_SIZE * (1 - Globals.CONFIDENCE))]]
-        return None
 
     def calculate(self):
         '''
         Calculates Raw EP value
+        TODO: We do that thing where we multiply a list of length 9 by the
+        Globals.SCOREvals so often it should probaby be a separate function
         '''
-        if self.N > 0:
-            self.EP[1] = multiply_SCOREvals([prob/self.N for prob in self.Score_Counts])
+        if sum(self.Score_Counts.values()):
+            self.EP[1] = sum([(self.Score_Counts[score] * Globals.score_values[score[0]][1] * (1 if score[1] else -1)) / sum(self.Score_Counts.values()) for score in self.Score_Counts])
         return None
-        
 
-EP_ARRAY = [[[EP(down, distance, yardline) for yardline in range(110)]
-            for distance in range(Globals.DISTANCE_LIMIT)]
-            for down in range(4)]
+EP_ARRAY = [[[EP(down, distance, yardline) for yardline in range(110)] for distance in range(Globals.DISTANCE_LIMIT)] for down in range(4)]
 
+EP_classification_models = []
+#EP_classification_models.append(sklearn.linear_model.LogisticRegression(multi_class='multinomial', solver='saga', max_iter=10000))
+#EP_classification_models.append(sklearn.neighbors.KNeighborsClassifier())
+EP_classification_models.append(sklearn.ensemble.RandomForestClassifier(n_estimators=Globals.forest_trees, n_jobs=-1))
+#EP_classification_models.append(sklearn.neural_network.MLPClassifier(max_iter=1000, hidden_layer_sizes=Globals.neural_network, warm_start=True))
+#EP_classification_models.append(sklearn.ensemble.GradientBoostingClassifier(n_estimators=Globals.forest_trees, warm_start=True))
+
+EP_regression_models = []
+#EP_regression_models.append(sklearn.linear_model.LogisticRegression(solver='saga', max_iter=10000))
+EP_regression_models.append(sklearn.neighbors.KNeighborsRegressor())
+EP_regression_models.append(sklearn.ensemble.RandomForestRegressor(n_estimators=Globals.forest_trees, n_jobs=-1))
+EP_regression_models.append(sklearn.neural_network.MLPRegressor(max_iter=1000, hidden_layer_sizes=Globals.neural_network, warm_start=True))
+EP_regression_models.append(sklearn.ensemble.GradientBoostingRegressor(n_estimators=Globals.forest_trees, warm_start=True))
+
+
+
+def EP_regression():
+    '''
+    Building the different EP regression models
+    '''
+    print("Building EP regression models", Functions.timestamp())
+    print("    EP models:", [type(model).__name__ for model in EP_regression_models])
+
+    for game in Globals.gamelist:
+        for play in game.playlist:
+            play.EP_wipe()
+
+    EP_data = []
+    EP_data_x = []
+    EP_data_y = []
+
+    for game in Globals.gamelist:
+        for play in game.playlist:
+            EP_result = 0
+            if play.EP_INPUT == "O-FG":
+                EP_result = Globals.SCOREvals[0][1]
+            elif play.EP_INPUT == "O-ROUGE":
+                EP_result = Globals.SCOREvals[1][1]
+            elif play.EP_INPUT == "O-SAFETY":
+                EP_result = Globals.SCOREvals[2][1]
+            elif play.EP_INPUT == "O-TD":
+                EP_result = Globals.SCOREvals[3][1]
+            elif play.EP_INPUT == "HALF":
+                EP_result = Globals.SCOREvals[4][1]
+            elif play.EP_INPUT == "D-FG":
+                EP_result = -Globals.SCOREvals[0][1]
+            elif play.EP_INPUT == "D-ROUGE":
+                EP_result = -Globals.SCOREvals[1][1]
+            elif play.EP_INPUT == "D-SAFETY":
+                EP_result = -Globals.SCOREvals[2][1]
+            elif play.EP_INPUT == "D-TD":
+                EP_result = -Globals.SCOREvals[3][1]
+            EP_data.append([play.DOWN, play.DISTANCE, play.YDLINE, EP_result])
+    
+    for model in EP_regression_models:
+        if type(model).__name__ == "KNeighborsRegressor":
+            model.n_neighbors = int(len(EP_data) ** 0.5)    
+
+    EP_data_x = pandas.DataFrame([x[:-1] for x in EP_data], columns=["Down", "Distance", "Ydline"])
+    EP_data_y = pandas.DataFrame([x[-1] for x in EP_data], columns=["EP_result"])
+
+    outputlist = [[] for x in EP_regression_models]
+    kf = KFold(n_splits=Globals.KFolds)
+    kf.get_n_splits(EP_data_x)
+    for train_index, test_index in kf.split(EP_data_x):
+        for m, model in enumerate(EP_regression_models):
+            model.fit(EP_data_x.iloc[train_index],
+                      EP_data_y.iloc[train_index].values.ravel())
+            outputlist[m].extend(model.predict(EP_data_x.iloc[test_index]))
+            print("    ", type(model).__name__, "fitted", Functions.timestamp())
+    print("    KFolds fitted", Functions.timestamp())
+
+    for model in outputlist:
+#        for play in model:
+#            play = [x for x in play]  # Converting from arrays to lists
+        model.reverse()  # We need it in reverse order to be able to pop
+
+    for game in Globals.gamelist:
+        for play in game.playlist:
+            play.EP_regression_list = [model.pop() for model in outputlist]
+
+    # Refit over the entire dataset
+    for model in EP_regression_models:
+        model.fit(EP_data_x, EP_data_y.values.ravel())
+        print("    ", type(model).__name__, "fitted", Functions.timestamp())
+    print("    Full models fitted", Functions.timestamp())
+
+    Functions.printFeatures(EP_regression_models)
+
+
+# TODO: Now assign all the vals to the EP_ARRAY for both classification and regression
+def EP_classification():
+    '''
+    Building the different EP classification models
+    We have logit, kNN, and RF. Going forward we can consider adding an NN
+    model, or a GAM or whatever else we want.
+    '''
+    print("Building EP classification models", Functions.timestamp())
+    print("    EP classification models:", [type(model).__name__ for model in EP_classification_models])
+
+    for game in Globals.gamelist:
+        for play in game.playlist:
+            play.EP_wipe()
+
+    EP_data = []
+    EP_data_x = []
+    EP_data_y = []
+
+    for game in Globals.gamelist:
+        for play in game.playlist:
+            EP_data.append([play.DOWN, play.DISTANCE, play.YDLINE, play.EP_INPUT])
+    
+    for model in EP_classification_models:
+        if type(model).__name__ == "KNeighborsClassifier":
+            model.n_neighbors = int(len(EP_data) ** 0.5)    
+
+    EP_data_x = pandas.DataFrame([x[:-1] for x in EP_data], columns=["Down", "Distance", "Ydline"])
+    EP_data_y = pandas.DataFrame([x[-1] for x in EP_data], columns=["EP_Input"])
+
+    outputlist = [[] for x in EP_classification_models]
+    kf = KFold(n_splits=Globals.KFolds)
+    kf.get_n_splits(EP_data_x)
+    for train_index, test_index in kf.split(EP_data_x):
+        for m, model in enumerate(EP_classification_models):
+            model.fit(EP_data_x.iloc[train_index],
+                      EP_data_y.iloc[train_index].values.ravel())
+            outputlist[m].extend(EP_classification_models[m].predict_proba(EP_data_x.iloc[test_index]))
+            print("    ", type(model).__name__, "fitted", Functions.timestamp())
+    print("    KFolds fitted", Functions.timestamp())
+
+    for model in outputlist:
+        for play in model:
+            play = [x for x in play]  # Converting from arrays to lists
+        model.reverse()  # We need it in reverse order to be able to pop
+
+    for game in Globals.gamelist:
+        for play in game.playlist:
+            play.EP_probs_list = [x.pop() for x in outputlist]
+
+    for game in Globals.gamelist:
+        for play in game.playlist:
+            if play.DISTANCE <= Globals.DISTANCE_LIMIT:
+                for model in play.EP_probs_list:
+                    play.EP_list.append(0
+                                        - model[0] * Globals.SCOREvals[0][1]
+                                        - model[1] * Globals.SCOREvals[1][1]
+                                        - model[2] * Globals.SCOREvals[2][1]
+                                        - model[3] * Globals.SCOREvals[3][1]
+                                        + model[5] * Globals.SCOREvals[0][1]
+                                        + model[6] * Globals.SCOREvals[1][1]
+                                        + model[7] * Globals.SCOREvals[2][1]
+                                        + model[8] * Globals.SCOREvals[3][1])
+
+    # Refit over the entire dataset
+    for model in EP_classification_models:
+        model.fit(EP_data_x, EP_data_y.values.ravel())
+        print("    ", type(model).__name__, "fitted", Functions.timestamp())
+    print("    Full models fitted", Functions.timestamp())
+
+    # Assigning values by averaging all instances
+    #TODO: This loops through gamelist thousands of times, there must be a better way.
+    for game in Globals.gamelist:
+        for play in game.playlist:
+            if play.DOWN and play.DISTANCE < Globals.DISTANCE_LIMIT:
+                EP_ARRAY[play.DOWN][play.DISTANCE][play.YDLINE].temp_EP_probs = list(numpy.add(EP_ARRAY[play.DOWN][play.DISTANCE][play.YDLINE].temp_EP_probs, play.EP_probs_list))
+                EP_ARRAY[play.DOWN][play.DISTANCE][play.YDLINE].temp_EP = list(numpy.add(EP_ARRAY[play.DOWN][play.DISTANCE][play.YDLINE].temp_EP, play.EP_list))
+                EP_ARRAY[play.DOWN][play.DISTANCE][play.YDLINE].count += 1
+
+    for down in EP_ARRAY:
+        for distance in down:
+            for ydline in distance:
+                if ydline.count > 0:
+                    ydline.EP_probs_list = [[x / ydline.count for x in y] for y in ydline.temp_EP_probs]
+                    ydline.EP_list = [x / ydline.count for x in ydline.temp_EP]
+                else:
+                    for model in EP_classification_models:
+                        ydline.EP_probs_list.append([x for x in model.predict_proba(
+                                [[(ydline.DOWN), ydline.DISTANCE, ydline.YDLINE]])[0]])
+                    for model in ydline.EP_probs_list:
+                        ydline.EP_list.append(multiply_SCOREvals(model))
+    print("    Array populated", Functions.timestamp())
+
+    for model in EP_classification_models:
+        if hasattr(model, "coef_"):
+            print(type(model).__name__, "coef_")
+            print(model.coef_)
+        if hasattr(model, "intercept_"):
+            print(type(model).__name__, "intercept_")
+            print(model.intercept_)
+        if hasattr(model, "feature_importances_"):
+            print(type(model).__name__, "feature_importances")
+            print(model.feature_importances_)
+
+    for game in Globals.gamelist:
+        for play in game.playlist:
+            play.EP_assign()
+        game.EPA_FN()
 
 
 def EP_Models():
@@ -122,7 +312,6 @@ def EP_Models():
     Building the different EP models
     We have logit, kNN, and RF. Going forward we can consider adding an NN
     model, or a GAM or whatever else we want.
-    TODO: This is nighmarishly long. Split it into chunks.
     '''
     global EP_ARRAY
     global EP_models
@@ -133,14 +322,66 @@ def EP_Models():
         for play in game.playlist:
             play.EP_wipe()
 
-    EP_data_x, EP_data_y = EP_training_data()
-    fit_EP_models()
-    assign_EP_probs()
+    EP_data = []
+    EP_data_x = []
+    EP_data_y = []
 
-    # Assigning values by averaging all instances
     for game in Globals.gamelist:
         for play in game.playlist:
-            if play.DOWN and play.DISTANCE < Globals.DISTANCE_LIMIT + 1:
+            EP_data.append([play.DOWN, play.DISTANCE, play.YDLINE, play.EP_INPUT])
+    
+    for model in EP_models:
+        if type(model).__name__ == "KNeighborsClassifier":
+            model.n_neighbors = int(len(EP_data) ** 0.5)    
+
+    EP_data_x = pandas.DataFrame([x[:-1] for x in EP_data], columns=["Down", "Distance", "Ydline"])
+    EP_data_y = pandas.DataFrame([x[-1] for x in EP_data], columns=["EP_Input"])
+
+    outputlist = [[] for x in EP_models]
+    kf = KFold(n_splits=Globals.KFolds)
+    kf.get_n_splits(EP_data_x)
+    for train_index, test_index in kf.split(EP_data_x):
+        for m, model in enumerate(EP_models):
+            model.fit(EP_data_x.iloc[train_index],
+                      EP_data_y.iloc[train_index].values.ravel())
+            outputlist[m].extend(EP_models[m].predict_proba(EP_data_x.iloc[test_index]))
+            print("    ", type(model).__name__, "fitted", Functions.timestamp())
+    print("    KFolds fitted", Functions.timestamp())
+
+    for model in outputlist:
+        for play in model:
+            play = [x for x in play]  # Converting from arrays to lists
+        model.reverse()  # We need it in reverse order to be able to pop
+
+    for game in Globals.gamelist:
+        for play in game.playlist:
+            play.EP_probs_list = [x.pop() for x in outputlist]
+
+    for game in Globals.gamelist:
+        for play in game.playlist:
+            if play.DISTANCE <= Globals.DISTANCE_LIMIT:
+                for model in play.EP_probs_list:
+                    play.EP_list.append(0
+                                        - model[0] * Globals.SCOREvals[0][1]
+                                        - model[1] * Globals.SCOREvals[1][1]
+                                        - model[2] * Globals.SCOREvals[2][1]
+                                        - model[3] * Globals.SCOREvals[3][1]
+                                        + model[5] * Globals.SCOREvals[0][1]
+                                        + model[6] * Globals.SCOREvals[1][1]
+                                        + model[7] * Globals.SCOREvals[2][1]
+                                        + model[8] * Globals.SCOREvals[3][1])
+
+    # Refit over the entire dataset
+    for model in EP_models:
+        model.fit(EP_data_x, EP_data_y.values.ravel())
+        print("    ", type(model).__name__, "fitted", Functions.timestamp())
+    print("    Full models fitted", Functions.timestamp())
+
+    # Assigning values by averaging all instances
+    #TODO: This loops through gamelist thousands of times, there must be a better way.
+    for game in Globals.gamelist:
+        for play in game.playlist:
+            if play.DOWN and play.DISTANCE < Globals.DISTANCE_LIMIT:
                 EP_ARRAY[play.DOWN][play.DISTANCE][play.YDLINE].temp_EP_probs = list(numpy.add(EP_ARRAY[play.DOWN][play.DISTANCE][play.YDLINE].temp_EP_probs, play.EP_probs_list))
                 EP_ARRAY[play.DOWN][play.DISTANCE][play.YDLINE].temp_EP = list(numpy.add(EP_ARRAY[play.DOWN][play.DISTANCE][play.YDLINE].temp_EP, play.EP_list))
                 EP_ARRAY[play.DOWN][play.DISTANCE][play.YDLINE].count += 1
@@ -161,13 +402,21 @@ def EP_Models():
                         ydline.EP_list.append(multiply_SCOREvals(model))
     print("    Array populated", Functions.timestamp())
 
-    Functions.printFeatures(EP_models)  # Print out coefficients and such
+    for model in EP_models:
+        if hasattr(model, "coef_"):
+            print(type(model).__name__, "coef_")
+            print(model.coef_)
+        if hasattr(model, "intercept_"):
+            print(type(model).__name__, "intercept_")
+            print(model.intercept_)
+        if hasattr(model, "feature_importances_"):
+            print(type(model).__name__, "feature_importances")
+            print(model.feature_importances_)
 
     for game in Globals.gamelist:
         for play in game.playlist:
             play.EP_assign()
         game.EPA_FN()
-    return None
 
 
 def multiply_SCOREvals(probs):
@@ -190,15 +439,16 @@ def EP_COUNT():
     '''
     Determines the scorecounts for each EP object.
     '''
-    print("Counting EP", Functions.timestamp())
-    scorecount_dict = {"D-FG": 0, "D-ROUGE": 1, "D-SAFETY": 2, "D-TD": 3, "HALF": 4, "O-FG": 5, "O-ROUGE": 6, "O-SAFETY": 7, "O-TD": 8}
-    for game in Globals.gamelist:
-        for play in game.playlist:
-            if play.DISTANCE < Globals.DISTANCE_LIMIT:
-                EP_ARRAY[play.DOWN][play.DISTANCE][play.YDLINE].N += 1
-                EP_ARRAY[play.DOWN][play.DISTANCE][play.YDLINE].Score_Counts[scorecount_dict[play.EP_INPUT]] += 1
-    return None
-
+    try:
+        print("Counting EP", Functions.timestamp())
+        for game in Globals.gamelist:
+            for play in game.playlist:
+                if play.DISTANCE < Globals.DISTANCE_LIMIT:
+                    EP_ARRAY[play.DOWN][play.DISTANCE][play.YDLINE].Score_Counts[(play.next_score, play.next_score_is_off)] += 1
+    except Exception as err:
+        print("EP COUNT ERROR", play.MULE, play.next_score, play.next_score_is_off, play.playdesc)
+        print(err)
+        
 
 def EP_calculate():
     '''
@@ -249,7 +499,7 @@ def EP_PLOTS():
             plots[1].append(YDLINE.EP[1])
             plots[2].append(YDLINE.EP[1] - YDLINE.EP[0])
             plots[3].append(YDLINE.EP[2] - YDLINE.EP[1])
-            
+
     # These are throwaway variables because otherwise the syntax becomes unruly
     fit = scipy.optimize.curve_fit(Functions.linearFit, plots[0], plots[1])[0]
     rmse = Functions.RMSE(Functions.linearFit, fit, numpy.array(plots[0]),
@@ -257,8 +507,8 @@ def EP_PLOTS():
     R2 = Functions.RSquared(Functions.linearFit, fit, numpy.array(plots[0]),
                             numpy.array(plots[1]))
 
-    plt.errorbar(plots[0], plots[1], yerr=plots[2:], fmt='x', color='green', ms=3)
-    plt.errorbar(plots[0], plots[1], yerr=plots[2:], fmt='x', color='green', ms=3)
+    plt.errorbar(plots[0], plots[1], yerr=plots[2:], fmt='x', color='green',
+                 ms=3)
     plt.plot(numpy.arange(110), Functions.linearFit(numpy.arange(110), *fit),
              color='green',
              label="y={0:5.4g}x+{1:5.4g}\nRMSE={2:5.4g}, R^2={3:5.4g}"
@@ -287,12 +537,14 @@ def EP_PLOTS():
 
         fit = scipy.optimize.curve_fit(Functions.linearFit, plots[0],
                                        plots[1])[0]
-        rmse = Functions.RMSE(Functions.linearFit, fit, numpy.array(plots[0]), numpy.array(plots[1]))
-        R2 = Functions.RSquared(Functions.linearFit, fit, numpy.array(plots[0]), numpy.array(plots[1]))
+        error = Functions.RMSE(Functions.linearFit, fit,
+                               numpy.array(plots[0]), numpy.array(plots[1]))
+        R2 = Functions.RSquared(Functions.linearFit, fit,
+                                numpy.array(plots[0]), numpy.array(plots[1]))
         plt.plot(plots[0], plots[1], 'xg', ms=3)
         plt.plot(numpy.arange(110),Functions.linearFit(numpy.arange(110), *fit), color='green',
                  label="y={0:5.4g}x+{1:5.4g}\nRMSE={2:5.4g}, R^2={3:5.4g}"
-                 .format(*fit, rmse, R2))
+                 .format(*fit, error, R2))
         plt.xlabel("Yardline")
         plt.ylabel("EP")
         plt.title("EP for 1st & 10 by Yardline\n"
@@ -304,15 +556,6 @@ def EP_PLOTS():
                     + ")", dpi=1000)
         plt.show()
 
-        heatmaps()  # Handles downs 2-4
-
-    return None
-
-
-def heatmaps():
-    '''
-    Fix these up with the new subplots syntax we learned
-    '''
     # Plotting the heatmaps by down
     for down in range(2, 4):
         for m, model in enumerate(EP_models):
@@ -370,8 +613,6 @@ def heatmaps():
                     dpi=1000)
         plt.show()
 
-    return None
-
 
 def EP_correlation():
     '''
@@ -391,21 +632,29 @@ def EP_correlation():
                 for m, model in enumerate(corr_graph):
                     model[int(round(play.EP_list[m] * 10)) + 100][0] += 1
                     if play.EP_INPUT == "D-FG":
-                        model[int(round(play.EP_list[m] * 10)) + 100][1] -= Globals.SCOREvals[0][1]
+                        model[int(round(play.EP_list[m] * 10)) + 100][1] -=\
+                            Globals.SCOREvals[0][1]
                     elif play.EP_INPUT == "D-ROUGE":
-                        model[int(round(play.EP_list[m] * 10)) + 100][1] -= Globals.SCOREvals[1][1]
+                        model[int(round(play.EP_list[m] * 10)) + 100][1] -=\
+                            Globals.SCOREvals[1][1]
                     elif play.EP_INPUT == "D-SAFETY":
-                        model[int(round(play.EP_list[m] * 10)) + 100][1] -= Globals.SCOREvals[2][1]
+                        model[int(round(play.EP_list[m] * 10)) + 100][1] -=\
+                            Globals.SCOREvals[2][1]
                     elif play.EP_INPUT == "D-TD":
-                        model[int(round(play.EP_list[m] * 10)) + 100][1] -= Globals.SCOREvals[3][1]
+                        model[int(round(play.EP_list[m] * 10)) + 100][1] -=\
+                            Globals.SCOREvals[3][1]
                     elif play.EP_INPUT == "O-FG":
-                        model[int(round(play.EP_list[m] * 10)) + 100][1] += Globals.SCOREvals[0][1]
+                        model[int(round(play.EP_list[m] * 10)) + 100][1] +=\
+                            Globals.SCOREvals[0][1]
                     elif play.EP_INPUT == "O-ROUGE":
-                        model[int(round(play.EP_list[m] * 10)) + 100][1] += Globals.SCOREvals[1][1]
+                        model[int(round(play.EP_list[m] * 10)) + 100][1] +=\
+                            Globals.SCOREvals[1][1]
                     elif play.EP_INPUT == "O-SAFETY":
-                        model[int(round(play.EP_list[m] * 10)) + 100][1] += Globals.SCOREvals[2][1]
+                        model[int(round(play.EP_list[m] * 10)) + 100][1] +=\
+                            Globals.SCOREvals[2][1]
                     elif play.EP_INPUT == "O-TD":
-                        model[int(round(play.EP_list[m] * 10)) + 100][1] += Globals.SCOREvals[3][1]
+                        model[int(round(play.EP_list[m] * 10)) + 100][1] +=\
+                            Globals.SCOREvals[3][1]
 
     # Make the general correlation graphs
     for m, model in enumerate(corr_graph):
@@ -420,24 +669,32 @@ def EP_correlation():
         data = [x for x in data if numpy.isfinite(x[1])]
         xdata = numpy.array([x[0] for x in data])
         ydata = numpy.array([x[1] for x in data])
-        func = Functions.linearFit
-        rmse = Functions.RMSE(func, [1, 0], xdata, ydata)
-        R2 = Functions.RSquared(func, [1, 0], xdata, ydata)
+        error = Functions.RMSE(Functions.linearFit, [1, 0], xdata, ydata)
+        R2 = Functions.RSquared(Functions.linearFit, [1, 0], xdata, ydata)
         plt.plot(numpy.arange(-10, 10), numpy.arange(-10, 10), color='black',
-                 label="RMSE={0:5.4g}, R^2={1:5.4g}".format(rmse, R2))
+                 label="RMSE={0:5.4g}, R^2={1:5.4g}".format(error, R2))
         plt.plot(xdata, ydata, 'g')
         plt.legend()
-        plt.title("Correlation Graph for Expected Points,\n" + type(EP_models[m]).__name__)
+        plt.title("Correlation Graph for Expected Points,\n"
+                  + type(EP_models[m]).__name__)
         plt.xlabel("Predicted EP")
         plt.ylabel("Actual EP")
         plt.axis([-4, 7, -4, 7])
         plt.grid()
-        plt.savefig("Figures/EP/EP Correlation(" + type(EP_models[m]).__name__ + ")", dpi=1000)
+        plt.savefig("Figures/EP/EP Correlation(" + type(EP_models[m]).__name__
+                    + ")", dpi=1000)
         plt.show()
 
     # Make the correlation graphs by quarter
     for quarter in range(1, 5):
+        '''
+        #TODO: Replace with a list comprehension
+        corr_graph = []
+        for z in range(len(EP_models)):  # For the three models
+            corr_graph.append([[0, 0] for x in range(201)])
+        '''
         corr_graph = [[[0, 0] for x in range(201)] for model in EP_models]
+
         for game in Globals.gamelist:
             for play in game.playlist:
                 if play.DISTANCE < Globals.DISTANCE_LIMIT\
@@ -445,21 +702,29 @@ def EP_correlation():
                     for m, model in enumerate(corr_graph):
                         model[int(round(play.EP_list[m] * 10)) + 100][0] += 1
                         if play.EP_INPUT == "D-FG":
-                            model[int(round(play.EP_list[m] * 10)) + 100][1] -= Globals.SCOREvals[0][1]
+                            model[int(round(play.EP_list[m] * 10)) + 100][1]\
+                                -= Globals.SCOREvals[0][1]
                         elif play.EP_INPUT == "D-ROUGE":
-                            model[int(round(play.EP_list[m] * 10)) + 100][1] -= Globals.SCOREvals[1][1]
+                            model[int(round(play.EP_list[m] * 10)) + 100][1]\
+                                -= Globals.SCOREvals[1][1]
                         elif play.EP_INPUT == "D-SAFETY":
-                            model[int(round(play.EP_list[m] * 10)) + 100][1] -= Globals.SCOREvals[2][1]
+                            model[int(round(play.EP_list[m] * 10)) + 100][1]\
+                                -= Globals.SCOREvals[2][1]
                         elif play.EP_INPUT == "D-TD":
-                            model[int(round(play.EP_list[m] * 10)) + 100][1] -= Globals.SCOREvals[3][1]
+                            model[int(round(play.EP_list[m] * 10)) + 100][1]\
+                                -= Globals.SCOREvals[3][1]
                         elif play.EP_INPUT == "O-FG":
-                            model[int(round(play.EP_list[m] * 10)) + 100][1] += Globals.SCOREvals[0][1]
+                            model[int(round(play.EP_list[m] * 10)) + 100][1]\
+                                += Globals.SCOREvals[0][1]
                         elif play.EP_INPUT == "O-ROUGE":
-                            model[int(round(play.EP_list[m] * 10)) + 100][1] += Globals.SCOREvals[1][1]
+                            model[int(round(play.EP_list[m] * 10)) + 100][1]\
+                                += Globals.SCOREvals[1][1]
                         elif play.EP_INPUT == "O-SAFETY":
-                            model[int(round(play.EP_list[m] * 10)) + 100][1] += Globals.SCOREvals[2][1]
+                            model[int(round(play.EP_list[m] * 10)) + 100][1]\
+                                += Globals.SCOREvals[2][1]
                         elif play.EP_INPUT == "O-TD":
-                            model[int(round(play.EP_list[m] * 10)) + 100][1] += Globals.SCOREvals[3][1]
+                            model[int(round(play.EP_list[m] * 10)) + 100][1]\
+                                += Globals.SCOREvals[3][1]
 
         for m, model in enumerate(corr_graph):
             ydata = []
@@ -474,9 +739,10 @@ def EP_correlation():
             data = [x for x in data if numpy.isfinite(x[1])]
             xdata = [x[0] for x in data]
             ydata = [x[1] for x in data]
-            func = Functions.linearFit
-            R2 = Functions.RSquared(func, numpy.array([1, 0]), xdata, ydata)
-            rmse = Functions.RMSE(func, numpy.array([1, 0]), xdata, ydata)
+            R2 = Functions.RSquared(Functions.linearFit, numpy.array([1, 0]),
+                                    xdata, ydata)
+            rmse = Functions.RMSE(Functions.linearFit, numpy.array([1, 0]),
+                                  xdata, ydata)
             plt.plot(numpy.arange(-10, 10), numpy.arange(-10, 10), color='black',
                      label="RMSE={0:5.4g}, R^2={1:5.4g}".format(rmse, R2))
             plt.plot(xdata, ydata, 'g')
@@ -495,6 +761,12 @@ def EP_correlation():
 
     # Make the correlation graphs by down
     for down in range(1, 4):
+        '''
+        corr_graph = []
+        for z in range(len(EP_models)):  # For the three models
+            corr_graph.append([[0, 0] for x in range(201)])
+        '''
+
         corr_graph = [[[0, 0] for x in range(201)] for model in EP_models]
 
         # TODO: Can we rework this block with scorecount_dict?
@@ -504,21 +776,29 @@ def EP_correlation():
                     for m, model in enumerate(corr_graph):
                         model[int(round(play.EP_list[m] * 10)) + 100][0] += 1
                         if play.EP_INPUT == "D-FG":
-                            model[int(round(play.EP_list[m] * 10)) + 100][1] -= Globals.SCOREvals[0][1]
+                            model[int(round(play.EP_list[m] * 10)) + 100][1]\
+                                -= Globals.SCOREvals[0][1]
                         elif play.EP_INPUT == "D-ROUGE":
-                            model[int(round(play.EP_list[m] * 10)) + 100][1] -= Globals.SCOREvals[1][1]
+                            model[int(round(play.EP_list[m] * 10)) + 100][1]\
+                                -= Globals.SCOREvals[1][1]
                         elif play.EP_INPUT == "D-SAFETY":
-                            model[int(round(play.EP_list[m] * 10)) + 100][1] -= Globals.SCOREvals[2][1]
+                            model[int(round(play.EP_list[m] * 10)) + 100][1]\
+                                -= Globals.SCOREvals[2][1]
                         elif play.EP_INPUT == "D-TD":
-                            model[int(round(play.EP_list[m] * 10)) + 100][1] -= Globals.SCOREvals[3][1]
+                            model[int(round(play.EP_list[m] * 10)) + 100][1]\
+                                -= Globals.SCOREvals[3][1]
                         elif play.EP_INPUT == "O-FG":
-                            model[int(round(play.EP_list[m] * 10)) + 100][1] += Globals.SCOREvals[0][1]
+                            model[int(round(play.EP_list[m] * 10)) + 100][1]\
+                                += Globals.SCOREvals[0][1]
                         elif play.EP_INPUT == "O-ROUGE":
-                            model[int(round(play.EP_list[m] * 10)) + 100][1] += Globals.SCOREvals[1][1]
+                            model[int(round(play.EP_list[m] * 10)) + 100][1]\
+                                += Globals.SCOREvals[1][1]
                         elif play.EP_INPUT == "O-SAFETY":
-                            model[int(round(play.EP_list[m] * 10)) + 100][1] += Globals.SCOREvals[2][1]
+                            model[int(round(play.EP_list[m] * 10)) + 100][1]\
+                                += Globals.SCOREvals[2][1]
                         elif play.EP_INPUT == "O-TD":
-                            model[int(round(play.EP_list[m] * 10)) + 100][1] += Globals.SCOREvals[3][1]
+                            model[int(round(play.EP_list[m] * 10)) + 100][1]\
+                                += Globals.SCOREvals[3][1]
 
         for m, model in enumerate(corr_graph):
             ydata = [ep[1]/ep[0] if ep[0] > Globals.THRESHOLD else numpy.nan for ep in model]
@@ -529,157 +809,23 @@ def EP_correlation():
             data = [x for x in data if numpy.isfinite(x[1])]
             xdata = [x[0] for x in data]
             ydata = [x[1] for x in data]
-            func = Functions.linearFit
-            R2 = Functions.RSquared(func, numpy.array([1, 0]), xdata, ydata)
-            rmse = Functions.RMSE(func, numpy.array([1, 0]), xdata, ydata)
-            plt.plot(numpy.arange(-10, 10), numpy.arange(-10, 10), color='black',
+            R2 = Functions.RSquared(Functions.linearFit, numpy.array([1, 0]),
+                                    xdata, ydata)
+            rmse = Functions.RMSE(Functions.linearFit, numpy.array([1, 0]),
+                                  xdata, ydata)
+            plt.plot(numpy.arange(-10, 10), numpy.arange(-10, 10),
+                     color='black',
                      label="RMSE={0:5.4g}, R^2={1:5.4g}".format(rmse, R2))
             plt.plot(xdata, ydata, 'g')
             plt.legend()
-            plt.title("Correlation Graph for Expected Points,\n" + type(EP_models[m]).__name__ + ", " + Functions.ordinals(down) + " down")
+            plt.title("Correlation Graph for Expected Points,\n"
+                      + type(EP_models[m]).__name__ + ", "
+                      + Functions.ordinals(down) + " down")
             plt.xlabel("Predicted EP")
             plt.ylabel("Actual EP")
             plt.axis([-4, 7, -4, 7])
             plt.grid()
-            plt.savefig("Figures/EP/EP Correlation(" + type(EP_models[m]).__name__ + ", " + Functions.ordinals(down) + " down)", dpi=1000)
+            plt.savefig("Figures/EP/EP Correlation("
+                        + type(EP_models[m]).__name__ + ", " +
+                        Functions.ordinals(down) + " down)", dpi=1000)
             plt.show()
-    return None
-
-
-def teamseason():
-    for m, model in enumerate(EP_models):
-        gc.collect()
-        for season in range(2002, 2019):
-            for team in Globals.CISTeams:
-                print(team, season)
-                tempdata = [[0, 0], [0, 0]]
-                for game in Globals.gamelist:
-                    if game.game_date.year == season and (game.HOME == team or game.AWAY == team):
-                        for play in game.playlist:
-                            if play.OFFENSE == team and play.EPA_list:
-                                if play.RP == "R":
-                                    tempdata[0][0] += 1
-                                    tempdata[0][1] += play.EPA_list[m]
-                                elif play.RP == "P":
-                                    tempdata[1][0] += 1
-                                    tempdata[1][1] += play.EPA_list[m]
-                if tempdata[0][0] > Globals.THRESHOLD and tempdata[1][0] > Globals.THRESHOLD:
-                    Functions.imscatter(tempdata[0][1] / tempdata[0][0], tempdata[1][1] / tempdata[1][0], "Logos/" + team + " logo.png", zoom=0.0075)
-        plt.xlabel("Rush EPA")
-        plt.ylabel("Pass EPA")
-        plt.title("Rush EPA vs Pass EPA\n" + type(EP_models[m]).__name__)
-        plt.grid()
-        plt.savefig(("Figures/EP/Rush EPA vs Pass EPA" + type(EP_models[m]).__name__), dpi=1000)
-        plt.show()
-        gc.collect()
-
-        for season in range(2002, 2019):
-            for team in Globals.CISTeams:
-                print(team, season)
-                tempdata = [[0, 0], [0, 0]]
-                for game in Globals.gamelist:
-                    if game.game_date.year == season and (game.HOME == team or game.AWAY == team):
-                        for play in game.playlist:
-                            if play.DEFENSE == team and play.EPA_list:
-                                if play.RP == "R":
-                                    tempdata[0][0] += 1
-                                    tempdata[0][1] += play.EPA_list[m]
-                                elif play.RP == "P":
-                                    tempdata[1][0] += 1
-                                    tempdata[1][1] += play.EPA_list[m]
-                if tempdata[0][0] > Globals.THRESHOLD and tempdata[1][0] > Globals.THRESHOLD:
-                    Functions.imscatter(tempdata[0][1] / tempdata[0][0], tempdata[1][1] / tempdata[1][0], "Logos/" + team + " logo.png", zoom=0.0075)
-        plt.xlabel("Defensive Rush EPA")
-        plt.ylabel("Defensive Pass EPA")
-        plt.title("Defensive Rush EPA vs Pass EPA\n" + type(EP_models[m]).__name__)
-        plt.grid()
-        plt.savefig(("Figures/EP/Defensive Rush EPA vs Pass EPA" + type(EP_models[m]).__name__), dpi=1000)
-        plt.show()
-        gc.collect()
-
-        for season in range(2002, 2019):
-            for conference in Globals.CISConferences:
-                print(conference, season)
-                tempdata = [[0, 0], [0, 0]]
-                for game in Globals.gamelist:
-                    if game.game_date.year == season and game.CONFERENCE == conference:
-                        for play in game.playlist:
-                            if play.EPA_list:
-                                if play.RP == "R":
-                                    tempdata[0][0] += 1
-                                    tempdata[0][1] += play.EPA_list[m]
-                                elif play.RP == "P":
-                                    tempdata[1][0] += 1
-                                    tempdata[1][1] += play.EPA_list[m]
-                if tempdata[0][0] > Globals.THRESHOLD and tempdata[1][0] > Globals.THRESHOLD:
-                    Functions.imscatter(tempdata[0][1] / tempdata[0][0], tempdata[1][1] / tempdata[1][0], "Logos/" + conference + " logo.png", zoom=0.0075)
-        plt.xlabel("Rush EPA")
-        plt.ylabel("Pass EPA")
-        plt.title("Conference Rush EPA vs Pass EPA\n" + type(EP_models[m]).__name__)
-        plt.grid()
-        plt.savefig(("Figures/EP/Conference Rush EPA vs Pass EPA" + type(EP_models[m]).__name__), dpi=1000)
-        plt.show()
-        gc.collect()
-
-
-def EP_training_data():
-    EP_data = []
-    EP_data_x = []
-    EP_data_y = []
-
-    for game in Globals.gamelist:
-        for play in game.playlist:
-            EP_data.append([play.DOWN, play.DISTANCE, play.YDLINE, play.EP_INPUT])
-    
-    # Sets the number of neighbours equal to the square root of the number of samples in the dataset for kNN models
-    for model in EP_models:
-        if type(model).__name__ == "KNeighborsClassifier":
-            model.n_neighbors = int(len(EP_data) ** 0.5)    
-
-    EP_data_x = pandas.DataFrame([x[:-1] for x in EP_data], columns=["Down", "Distance", "Ydline"])
-    EP_data_y = pandas.DataFrame([x[-1] for x in EP_data], columns=["EP_Input"])
-    return EP_data_x, EP_data_y
-
-
-def fit_EP_models():
-    outputlist = [[] for x in EP_models]
-    kf = KFold(n_splits=Globals.KFolds)
-    kf.get_n_splits(EP_data_x)
-    for train_index, test_index in kf.split(EP_data_x):
-        for m, model in enumerate(EP_models):
-            model.fit(EP_data_x.iloc[train_index],
-                      EP_data_y.iloc[train_index].values.ravel())
-            outputlist[m].extend(EP_models[m].predict_proba(EP_data_x.iloc[test_index]))
-            print("    ", type(model).__name__, "fitted", Functions.timestamp())
-    print("    KFolds fitted", Functions.timestamp())
-
-    # Refit over the entire dataset
-    for model in EP_models:
-        model.fit(EP_data_x, EP_data_y.values.ravel())
-        print("    ", type(model).__name__, "fitted", Functions.timestamp())
-    print("    Full models fitted", Functions.timestamp())
-    for model in outputlist:
-        for play in model:
-            play = [x for x in play]  # Converting from arrays to lists
-        model.reverse()  # We need it in reverse order to be able to pop
-    return None
-
-
-def assign_EP_probs():
-    for game in Globals.gamelist:
-        for play in game.playlist:
-            play.EP_probs_list = [x.pop() for x in outputlist]
-
-    for game in Globals.gamelist:
-        for play in game.playlist:
-            for model in play.EP_probs_list:
-                play.EP_list.append(0
-                                    - model[0] * Globals.SCOREvals[0][1]
-                                    - model[1] * Globals.SCOREvals[1][1]
-                                    - model[2] * Globals.SCOREvals[2][1]
-                                    - model[3] * Globals.SCOREvals[3][1]
-                                    + model[5] * Globals.SCOREvals[0][1]
-                                    + model[6] * Globals.SCOREvals[1][1]
-                                    + model[7] * Globals.SCOREvals[2][1]
-                                    + model[8] * Globals.SCOREvals[3][1])
-    return None

@@ -308,8 +308,9 @@ def FG_EP():
                                 break
     except Exception as err:
         print("FG EP ERROR", play.MULE, play.playdesc)
-        pint(nextPlay.DOWN, nextPlay.DISTANCE, nextPlay.playdesc)
+        print(nextPlay.DOWN, nextPlay.DISTANCE, nextPlay.YDLINE, nextPlay.playdesc)
         print(err)
+        traceback.print_exc()
     return None
 
 

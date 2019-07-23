@@ -244,7 +244,7 @@ class game():
         '''
         
         for play in self.playlist:
-            play.DEFENSE = self.AWAY if play.offIsHome else self.HOME
+            play.DEFENSE = self.AWAY if play.OffIsHome else self.HOME
             '''
             TODO: If the above works then delete this
             if play.OFFENSE == self.HOME:
@@ -262,7 +262,7 @@ class game():
         TODO: Could we maybe make this into a length 2 list? Same for Home/Away, Off/Def, HA Score, timeouts? If so we can actually just compare the lists and then use reverse if offIsHome is False
         '''
         for play in self.playlist:
-            if play.offIsHome:
+            if play.OffIsHome:
                 play.O_SCORE = play.HOME_SCORE
                 play.D_SCORE = play.AWAY_SCORE
             else:
@@ -290,7 +290,7 @@ class game():
         '''
         for play in self.playlist:
             # Match offense to home or away and set the win accordingly
-            play.O_WIN = not(play.O_WIN ^ self.H_WIN)
+            play.O_WIN = not(play.OffIsHome ^ self.H_WIN)
             '''
             TODO: If the above works then get rid of this
             if play.offIsHome:
@@ -350,6 +350,12 @@ class game():
                 elif play.FG_RSLT == "GOOD" and play.DOWN > 0:  # Filter PATs
                     play.score_play = "FG"
                     play.score_play_is_off = True
+                elif "SAFETY" in play.playdesc:
+                    play.score_play = "SAFETY"
+                    if play.YDLINE < 65:
+                        play.score_play_is_off = False
+                    else:
+                        play.score_play_is_off = True
                 elif "TOUCHDOWN" in play.playdesc:
                     play.score_play = "TD"
                     for nextPlay in self.playlist[p + 1:]:
@@ -368,21 +374,13 @@ class game():
                             break
                     else:  # If we reach the end of the game w/ no PAT
                         play.score_play_is_off = True
-
-                elif "SAFETY" in play.playdesc:
-                    play.score_play = "SAFETY"
-                    if play.YDLINE < 65:
-                        play.score_play_is_off = False
-                    else:
-                        play.score_play_is_off = True
-                elif play.QUARTER == 2 and self.playlist[p+1].QUARTER == 3:
-                    play.score_play == "HALF"
-                    break
-                elif play == self.playlist[-1]:
+                elif play == self.playlist[-1]:  # end of game
                     play.score_play = "HALF"
+                elif play.QUARTER == 2 and self.playlist[p+1].QUARTER == 3:  # halftime
+                    play.score_play == "HALF"
                 elif play.QUARTER == 4 and self.playlist[p+1].QUARTER == 5:  # OT
                     play.score_play = "HALF"
-                    break
+                    play.score_play_is_off == False
         except Exception as err:
             print("SCORING PLAY ERROR", self.MULE, self.playlist[p].playdesc)
             traceback.print_exc()
@@ -444,17 +442,19 @@ class game():
         '''
         For each play gives the next type of score and whether the current offensive team will be the scoring team
         '''
-        for play in self.playlist:  # Loop through the playlist
+        for p, play in enumerate(self.playlist):  # Loop through the playlist
             # Looping through all the plays going forward
-            for nextPlay in self.playlist[self.playlist.index(play):]:
+            for nextPlay in self.playlist[p:]:
                 if nextPlay.score_play:  # If there's a scoring play
                     # Need to match the scoring team with the current offense
                     play.next_score = nextPlay.score_play
-                    try:
-                        play.next_score_is_off = not(play.OffIsHome ^ nextPlay.OffIsHome) * nextPlay.score_play_is_off
-                    except Exception:  # Handles "HALF"
+                    if play.next_score == "HALF":
                         play.next_score_is_off = False
+                    else:
+                        play.next_score_is_off = not(play.OffIsHome ^ nextPlay.OffIsHome) * nextPlay.score_play_is_off
                     break
+            else:
+                print("EP INPUT ERROR", play.MULE, play.DOWN, play.DISTANCE, play.playdesc)
         return None
 
     def OffIsHome_FN(self):
@@ -519,7 +519,7 @@ class game():
             else:
                 rowtime = datetime.datetime(1900, 1, 1)
                 rowtime = rowtime.replace(tzinfo=pytz.utc)
-                with open("METAR/Station-year METAR/" + self.stadium.airport
+                with open("METAR/" + self.stadium.airport
                            + " " + str(self.game_date.year) + ".csv") as csvfile:
                     metarcsv = csv.reader(csvfile, delimiter=';')
                     for r, row in enumerate(metarcsv):

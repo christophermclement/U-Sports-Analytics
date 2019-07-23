@@ -10,7 +10,7 @@ import numpy
 import Globals
 import Classes.EPClass as EPClass
 import Functions
-PUNT_ARRAY = []
+
 
 
 class Punt():
@@ -80,15 +80,7 @@ class Punt():
                  self.spread_bootstrap[int(Globals.BOOTSTRAP_SIZE * (1 - Globals.CONFIDENCE))]]
         return None
 
-
-def array_declaration():
-    '''
-    Creates the punt array, which is technically a list, but it holds a punt object for every yardline
-    # TODO: What if we just put this in main?
-    '''
-    global PUNT_ARRAY
-    PUNT_ARRAY = [Punt(ydline) for ydline in range(110)]
-
+PUNT_ARRAY = [Punt(ydline) for ydline in range(110)]
 
 def P_boot():
     '''
