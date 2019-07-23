@@ -66,35 +66,28 @@ class EP():
         Finds the binomial confidence intervals for each score probability
         TODO: no more self.N
         '''
-        if self.N > 0:
+        if sum(self.Score_Counts.values()):
             for x in range(9):
                 self.P_Scores[x][1] = self.Score_Counts[x] / self.N
-                self.P_Scores[x][0] = Functions.BinomLow(self.Score_Counts[x], self.N, Globals.CONFIDENCE)
-                self.P_Scores[x][2] = Functions.BinomHigh(self.Score_Counts[x], self.N, Globals.CONFIDENCE)
+                self.P_Scores[x][0] = Functions.BinomLow(self.Score_Counts[x], sum(self.Score_Counts.values()), Globals.CONFIDENCE)
+                self.P_Scores[x][2] = Functions.BinomHigh(self.Score_Counts[x], sum(self.Score_Counts.values()), Globals.CONFIDENCE)
 
     def boot(self):
         '''
         Bootstraps a confidence interval for our EP value
         TODO: Fix this with the new system
         '''
-        if self.N > 10:
+        if sum(self.Score_Counts.values()):
             self.BOOTSTRAP =\
-                numpy.sort(numpy.array([numpy.average(numpy.random.choice((
-                          [Globals.SCOREvals[3][1]] * self.Score_Counts[8] +
-                          [Globals.SCOREvals[0][1]] * self.Score_Counts[5] +
-                          [Globals.SCOREvals[1][1]] * self.Score_Counts[6] +
-                          [Globals.SCOREvals[2][1]] * self.Score_Counts[7] +
-                          [Globals.SCOREvals[4][1]] * self.Score_Counts[4] +
-                          [Globals.SCOREvals[2][1] * (-1)] * self.Score_Counts[2] +
-                          [Globals.SCOREvals[1][1] * (-1)] * self.Score_Counts[1] +
-                          [Globals.SCOREvals[0][1] * (-1)] * self.Score_Counts[0] +
-                          [Globals.SCOREvals[3][1] * (-1)] * self.Score_Counts[3]),
-                          self.N, replace=True))
-                          for _ in range(Globals.BOOTSTRAP_SIZE)], dtype='f4'))
+                numpy.sort(
+                    numpy.array([
+                        numpy.average(
+                         numpy.random.choice(
+                             [y for x in [self.Score_Counts[x] * [Globals.score_values[x[0]][1] * (1 if x[1] else -1)] for x in self.Score_Counts] for y in x],
+                             sum(self.Score_Counts.values()), replace=True)) for _ in range(Globals.BOOTSTRAP_SIZE)], dtype='float64'))
 
-            self.EP = [self.BOOTSTRAP[int(Globals.BOOTSTRAP_SIZE * Globals.CONFIDENCE - 1)],
-                       multiply_SCOREvals([prob / self.N for prob in self.Score_Counts]),
-                       self.BOOTSTRAP[int(Globals.BOOTSTRAP_SIZE * (1 - Globals.CONFIDENCE))]]
+            self.EP[0] = self.BOOTSTRAP[int(Globals.BOOTSTRAP_SIZE * Globals.CONFIDENCE - 1)]
+            self.EP[2] = self.BOOTSTRAP[int(Globals.BOOTSTRAP_SIZE * (1 - Globals.CONFIDENCE))]
 
     def calculate(self):
         '''
@@ -103,7 +96,7 @@ class EP():
         Globals.SCOREvals so often it should probaby be a separate function
         '''
         if sum(self.Score_Counts.values()):
-            self.EP[1] = sum([(self.Score_Counts[score] * Globals.score_values[score[0]][1] * (1 if score[1] else -1)) / sum(self.Score_Counts.values()) for score in self.Score_Counts])
+            self.EP[1] = sum([(self.Score_Counts[score] * Globals.score_values[score[0]][1] * (1 if score[1] else -1)) for score in self.Score_Counts]) / sum(self.Score_Counts.values())
         return None
 
 EP_ARRAY = [[[EP(down, distance, yardline) for yardline in range(110)] for distance in range(Globals.DISTANCE_LIMIT)] for down in range(4)]
@@ -129,7 +122,7 @@ def EP_regression():
     Building the different EP regression models
     '''
     print("Building EP regression models", Functions.timestamp())
-    print("    EP models:", [type(model).__name__ for model in EP_regression_models])
+    print("\tEP regression models:", [type(model).__name__ for model in EP_regression_models])
 
     for game in Globals.gamelist:
         for play in game.playlist:
@@ -141,26 +134,7 @@ def EP_regression():
 
     for game in Globals.gamelist:
         for play in game.playlist:
-            EP_result = 0
-            if play.EP_INPUT == "O-FG":
-                EP_result = Globals.SCOREvals[0][1]
-            elif play.EP_INPUT == "O-ROUGE":
-                EP_result = Globals.SCOREvals[1][1]
-            elif play.EP_INPUT == "O-SAFETY":
-                EP_result = Globals.SCOREvals[2][1]
-            elif play.EP_INPUT == "O-TD":
-                EP_result = Globals.SCOREvals[3][1]
-            elif play.EP_INPUT == "HALF":
-                EP_result = Globals.SCOREvals[4][1]
-            elif play.EP_INPUT == "D-FG":
-                EP_result = -Globals.SCOREvals[0][1]
-            elif play.EP_INPUT == "D-ROUGE":
-                EP_result = -Globals.SCOREvals[1][1]
-            elif play.EP_INPUT == "D-SAFETY":
-                EP_result = -Globals.SCOREvals[2][1]
-            elif play.EP_INPUT == "D-TD":
-                EP_result = -Globals.SCOREvals[3][1]
-            EP_data.append([play.DOWN, play.DISTANCE, play.YDLINE, EP_result])
+            EP_data.append([play.DOWN, play.DISTANCE, play.YDLINE, Globals.score_values[play.next_score][1] * (1 if play.next_score_is_off else -1)])
     
     for model in EP_regression_models:
         if type(model).__name__ == "KNeighborsRegressor":
@@ -178,7 +152,7 @@ def EP_regression():
                       EP_data_y.iloc[train_index].values.ravel())
             outputlist[m].extend(model.predict(EP_data_x.iloc[test_index]))
             print("    ", type(model).__name__, "fitted", Functions.timestamp())
-    print("    KFolds fitted", Functions.timestamp())
+    print("\tKFolds fitted", Functions.timestamp())
 
     for model in outputlist:
 #        for play in model:
@@ -192,8 +166,8 @@ def EP_regression():
     # Refit over the entire dataset
     for model in EP_regression_models:
         model.fit(EP_data_x, EP_data_y.values.ravel())
-        print("    ", type(model).__name__, "fitted", Functions.timestamp())
-    print("    Full models fitted", Functions.timestamp())
+        print("\t", type(model).__name__, "fitted", Functions.timestamp())
+    print("\tFull models fitted", Functions.timestamp())
 
     Functions.printFeatures(EP_regression_models)
 
@@ -206,7 +180,7 @@ def EP_classification():
     model, or a GAM or whatever else we want.
     '''
     print("Building EP classification models", Functions.timestamp())
-    print("    EP classification models:", [type(model).__name__ for model in EP_classification_models])
+    print("\tEP classification models:", [type(model).__name__ for model in EP_classification_models])
 
     for game in Globals.gamelist:
         for play in game.playlist:
@@ -291,118 +265,6 @@ def EP_classification():
     print("    Array populated", Functions.timestamp())
 
     for model in EP_classification_models:
-        if hasattr(model, "coef_"):
-            print(type(model).__name__, "coef_")
-            print(model.coef_)
-        if hasattr(model, "intercept_"):
-            print(type(model).__name__, "intercept_")
-            print(model.intercept_)
-        if hasattr(model, "feature_importances_"):
-            print(type(model).__name__, "feature_importances")
-            print(model.feature_importances_)
-
-    for game in Globals.gamelist:
-        for play in game.playlist:
-            play.EP_assign()
-        game.EPA_FN()
-
-
-def EP_Models():
-    '''
-    Building the different EP models
-    We have logit, kNN, and RF. Going forward we can consider adding an NN
-    model, or a GAM or whatever else we want.
-    '''
-    global EP_ARRAY
-    global EP_models
-    print("Building EP models", Functions.timestamp())
-    print("    EP models:", [type(model).__name__ for model in EP_models])
-
-    for game in Globals.gamelist:
-        for play in game.playlist:
-            play.EP_wipe()
-
-    EP_data = []
-    EP_data_x = []
-    EP_data_y = []
-
-    for game in Globals.gamelist:
-        for play in game.playlist:
-            EP_data.append([play.DOWN, play.DISTANCE, play.YDLINE, play.EP_INPUT])
-    
-    for model in EP_models:
-        if type(model).__name__ == "KNeighborsClassifier":
-            model.n_neighbors = int(len(EP_data) ** 0.5)    
-
-    EP_data_x = pandas.DataFrame([x[:-1] for x in EP_data], columns=["Down", "Distance", "Ydline"])
-    EP_data_y = pandas.DataFrame([x[-1] for x in EP_data], columns=["EP_Input"])
-
-    outputlist = [[] for x in EP_models]
-    kf = KFold(n_splits=Globals.KFolds)
-    kf.get_n_splits(EP_data_x)
-    for train_index, test_index in kf.split(EP_data_x):
-        for m, model in enumerate(EP_models):
-            model.fit(EP_data_x.iloc[train_index],
-                      EP_data_y.iloc[train_index].values.ravel())
-            outputlist[m].extend(EP_models[m].predict_proba(EP_data_x.iloc[test_index]))
-            print("    ", type(model).__name__, "fitted", Functions.timestamp())
-    print("    KFolds fitted", Functions.timestamp())
-
-    for model in outputlist:
-        for play in model:
-            play = [x for x in play]  # Converting from arrays to lists
-        model.reverse()  # We need it in reverse order to be able to pop
-
-    for game in Globals.gamelist:
-        for play in game.playlist:
-            play.EP_probs_list = [x.pop() for x in outputlist]
-
-    for game in Globals.gamelist:
-        for play in game.playlist:
-            if play.DISTANCE <= Globals.DISTANCE_LIMIT:
-                for model in play.EP_probs_list:
-                    play.EP_list.append(0
-                                        - model[0] * Globals.SCOREvals[0][1]
-                                        - model[1] * Globals.SCOREvals[1][1]
-                                        - model[2] * Globals.SCOREvals[2][1]
-                                        - model[3] * Globals.SCOREvals[3][1]
-                                        + model[5] * Globals.SCOREvals[0][1]
-                                        + model[6] * Globals.SCOREvals[1][1]
-                                        + model[7] * Globals.SCOREvals[2][1]
-                                        + model[8] * Globals.SCOREvals[3][1])
-
-    # Refit over the entire dataset
-    for model in EP_models:
-        model.fit(EP_data_x, EP_data_y.values.ravel())
-        print("    ", type(model).__name__, "fitted", Functions.timestamp())
-    print("    Full models fitted", Functions.timestamp())
-
-    # Assigning values by averaging all instances
-    #TODO: This loops through gamelist thousands of times, there must be a better way.
-    for game in Globals.gamelist:
-        for play in game.playlist:
-            if play.DOWN and play.DISTANCE < Globals.DISTANCE_LIMIT:
-                EP_ARRAY[play.DOWN][play.DISTANCE][play.YDLINE].temp_EP_probs = list(numpy.add(EP_ARRAY[play.DOWN][play.DISTANCE][play.YDLINE].temp_EP_probs, play.EP_probs_list))
-                EP_ARRAY[play.DOWN][play.DISTANCE][play.YDLINE].temp_EP = list(numpy.add(EP_ARRAY[play.DOWN][play.DISTANCE][play.YDLINE].temp_EP, play.EP_list))
-                EP_ARRAY[play.DOWN][play.DISTANCE][play.YDLINE].count += 1
-
-    for down in EP_ARRAY:
-        for distance in down:
-            for ydline in distance:
-                if ydline.count > 0:
-                    ydline.EP_probs_list = [[x / ydline.count for x in y] for y in ydline.temp_EP_probs]
-                    ydline.EP_list = [x / ydline.count for x in ydline.temp_EP]
-                else:
-                    for model in EP_models:
-                        ydline.EP_probs_list.append([x for x in model.predict_proba(
-                                [[(ydline.DOWN),
-                                  ydline.DISTANCE,
-                                  ydline.YDLINE]])[0]])
-                    for model in ydline.EP_probs_list:
-                        ydline.EP_list.append(multiply_SCOREvals(model))
-    print("    Array populated", Functions.timestamp())
-
-    for model in EP_models:
         if hasattr(model, "coef_"):
             print(type(model).__name__, "coef_")
             print(model.coef_)

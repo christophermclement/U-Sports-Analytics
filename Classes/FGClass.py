@@ -31,12 +31,12 @@ class FG():
         #self.N = self.GOOD = self.ROUGE = self.MISSED = 0  # TODO: Delete this line
 
         self.counts = {"GOOD" : numpy.float64(0),
-                 "ROUGE" : numpy.float64(0),
-                 "MISSED" : numpy.float64(0)}
+                       "ROUGE" : numpy.float64(0),
+                       "MISSED" : numpy.float64(0)}
 
         self.probabilities = {"GOOD" : numpy.array([None, None, None], dtype='Float64'),
-                        "ROUGE" : numpy.array([None, None, None], dtype='Float64'),
-                        "MISSED" : numpy.array([None, None, None], dtype='Float64')}
+                              "ROUGE" : numpy.array([None, None, None], dtype='Float64'),
+                              "MISSED" : numpy.array([None, None, None], dtype='Float64')}
 
         self.EP = numpy.array([None, None, None], dtype='Float64')
         self.BOOTSTRAP = Globals.DummyArray
@@ -50,8 +50,6 @@ class FG():
         if sum(self.counts.values()) > 0:
             for outcome in self.counts:
                 self.probabilities[outcome][1] = self.counts[outcome] / sum(self.counts.values())
-                self.probabilities[outcome][2] = Functions.BinomHigh(self.counts[outcome], sum(self.counts.values()), Globals.CONFIDENCE)
-                self.probabilities[outcome][0] = Functions.BinomLow(self.counts[outcome], sum(self.counts.values()), Globals.CONFIDENCE)
 
             self.EP[1] = sum(self.EP_ARRAY) / sum(self.counts.values())
         return None
@@ -78,15 +76,17 @@ class FG():
         Bootstrap the EP values
         '''
         if sum(self.counts.values()) > 10:
+            for outcome in self.probabilities:
+                self.probabilities[outcome][2] = Functions.BinomHigh(self.counts[outcome], sum(self.counts.values()), Globals.CONFIDENCE)
+                self.probabilities[outcome][0] = Functions.BinomLow(self.counts[outcome], sum(self.counts.values()), Globals.CONFIDENCE)
+            print(self.EP_ARRAY)
             self.BOOTSTRAP =\
                 numpy.sort(numpy.array([numpy.average(numpy.random.choice(
                         self.EP_ARRAY, sum(self.counts.values()), replace=True))
                         for _ in range(Globals.BOOTSTRAP_SIZE)], dtype='f4'))
-            self.EP[0] =\
-                self.BOOTSTRAP[int(Globals.BOOTSTRAP_SIZE * Globals.CONFIDENCE - 1)]
+            self.EP[0] = self.BOOTSTRAP[int(Globals.BOOTSTRAP_SIZE * Globals.CONFIDENCE - 1)]
 
-            self.EP[2] =\
-                self.BOOTSTRAP[int(Globals.BOOTSTRAP_SIZE * (1-Globals.CONFIDENCE))]
+            self.EP[2] = self.BOOTSTRAP[int(Globals.BOOTSTRAP_SIZE * (1-Globals.CONFIDENCE))]
         return None
 
 
@@ -300,7 +300,7 @@ def FG_EP():
                 if play.ODK == "FG" and play.DOWN:  # avoid PATs
                     FG_ARRAY[play.YDLINE].counts[play.FG_RSLT] += 1
                     if play.score_play:
-                        FG_ARRAY[play.YDLINE].EP_ARRAY.append(Globals.score_values[play.score_play] * (1 if play.score_play_is_off else -1))
+                        FG_ARRAY[play.YDLINE].EP_ARRAY.append(Globals.score_values[play.score_play][1] * (1 if play.score_play_is_off else -1))
                     else:
                         for n, nextPlay in enumerate(game.playlist[p + 1:]):
                             if nextPlay.ODK == "OD":

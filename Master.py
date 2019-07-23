@@ -21,6 +21,8 @@ import Globals
 import sys
 import itertools
 import gc
+import os
+
 
 def import_mule(csvmule, mule):
     '''
@@ -43,13 +45,8 @@ def score_bootstrap():
     '''
     print("Bootstrapping scores", Functions.timestamp())
     Globals.TDval_BOOTSTRAP =\
-        numpy.sort(6 + KOClass.KO_ARRAY[65].BOOTSTRAP +
-                   numpy.random.binomial(FGClass.FG_ARRAY[5].N,
-                                         FGClass.FG_ARRAY[5].P_GOOD[1],
-                                         Globals.BOOTSTRAP_SIZE) /
-                   FGClass.FG_ARRAY[5].N)
-    Globals.ROUGEval_BOOTSTRAP =\
-        numpy.sort(1 - EPClass.EP_ARRAY[1][10][75].BOOTSTRAP)
+        numpy.sort(6 + KOClass.KO_ARRAY[65].BOOTSTRAP + numpy.random.binomial(FGClass.FG_ARRAY[5].N, FGClass.FG_ARRAY[5].P_GOOD[1], Globals.BOOTSTRAP_SIZE) / FGClass.FG_ARRAY[5].N)
+    Globals.ROUGEval_BOOTSTRAP = numpy.sort(1 - EPClass.EP_ARRAY[1][10][75].BOOTSTRAP)
 
     if EPClass.EP_ARRAY[1][10][75].EP[1] > (-1) * KOClass.KO_ARRAY[65].EP[1]:
         Globals.FGval_BOOTSTRAP = numpy.sort(3 - EPClass.EP_ARRAY[1][10][75].BOOTSTRAP)
@@ -121,8 +118,8 @@ def iterate_scores():
         PRECISION = abs(TEMP - Globals.score_values["SAFETY"][1]) / Globals.score_values["SAFETY"][1]\
             if abs(TEMP - Globals.score_values["SAFETY"][1]) / Globals.score_values["SAFETY"][1]\
             > PRECISION else PRECISION
-        print(PRECISION)
-    print([x[1] for x in Globals.score_values])
+        print("% change: {0:4.2e}".format(PRECISION), Functions.timestamp())
+    print([x[1] for x in Globals.score_values.values()], Functions.timestamp())
     return None
 
 
@@ -168,6 +165,7 @@ def parser():
                 play.KOSpread_FN()  # Dependent on ODK, KOGross, KONet
                 play.puntGross_FN()  # Dependent on ODK
                 play.puntSpread_FN()  # Dependent on ODK, puntNet, puntGross
+    return None
 
 
 def reparse():
@@ -184,10 +182,12 @@ def reparse():
         EPClass.EP_COUNT()
         iterate_scores()
         print("Done iterating, pickling", Functions.timestamp())
-        with open("Pickle/gamelist", 'wb') as file:
-            pickle.dump(Globals.gamelist, file)
-        with open("Pickle/SCOREvals", 'wb') as file:
-            pickle.dump(Globals.SCOREvals, file)
+        for g, game in enumerate(Globals.gamelist):  # Pickle all the games in their own directory
+            with open("Pickle/Games/" + game.game_statement, 'wb') as file:
+                pickle.dump(game, file)
+                print("pickled", g, " of ", len(Globals.gamelist), "games", end='\r')
+        with open("Pickle/score_values", 'wb') as file:
+            pickle.dump(Globals.score_values, file)
         with open("Pickle/P1D_ARRAY", 'wb') as file:
             pickle.dump(P1DClass.P1D_ARRAY, file)
         with open("Pickle/P1D_GOAL_ARRAY", 'wb') as file:
@@ -202,8 +202,12 @@ def reparse():
             pickle.dump(EPClass.EP_ARRAY, file)
     else:
         print("Reusing pickled parsed data", Functions.timestamp())
-        with open("Pickle/gamelist", 'rb') as file:
-            Globals.gamelist = pickle.load(file)
+        
+        for f, file in enumerate(os.listdir("Pickle/Games")):
+            with open("Pickle/Games/" + file, 'rb') as game:
+                Globals.gamelist.append(pickle.load(game))
+                print("unpickled", f, " of ", len(os.listdir("Pickle/Games")), "games", end='\r')
+
         with open("Pickle/P1D_ARRAY", 'rb') as file:
             P1DClass.P1D_ARRAY = pickle.load(file)
         with open("Pickle/P1D_GOAL_ARRAY", 'rb') as file:
@@ -227,28 +231,41 @@ def recalc_ep():
         '''
         Bringing in these pickles and then retraining lets us jump to the warm start part of the game
         '''
-        for m, model in enumerate(EPClass.EP_models):
+        for model in EPClass.EP_classification_models:
             try:
-                with open("Pickle/EPMODELS" + type(model).__name__, 'rb') as file:
+                with open("Pickle/EP Models/" + type(model).__name__, 'rb') as file:
                     model = pickle.load(file)
             except Exception:  # Basically, don't sweat it if you don't find one.
                 pass
 
-        EPClass.EP_Models()
+        for model in EPClass.EP_regression_models:
+            try:
+                with open("Pickle/EP Models/" + type(model).__name__, 'rb') as file:
+                    model = pickle.load(file)
+            except Exception:  # Basically, don't sweat it if you don't find one.
+                pass
+
         EPClass.BOOTSTRAP()
         PuntClass.P_EP()
         PuntClass.P_boot()
         KOClass.KO_boot()
         FGClass.FG_boot()
-    
         score_bootstrap()
+        EPClass.EP_classification()
+        EPClass.EP_regression()
+        
 
         print("    pickling", Functions.timestamp())
         with open("Pickle/EPARRAY", 'wb') as file:
             pickle.dump(EPClass.EP_ARRAY, file)
-        for m, model in enumerate(EPClass.EP_models):  # Need to pickle models individually bc it can't pickle >4GB
-            with open("Pickle/EPMODELS" + type(model).__name__, 'wb') as file:
+
+        for m, model in enumerate(EPClass.EP_classification_models):  # Need to pickle models individually bc it can't pickle >4GB
+            with open("Pickle/EP Models/" + type(model).__name__, 'wb') as file:
                 pickle.dump(model, file)
+        for m, model in enumerate(EPClass.EP_regression_models):  # Need to pickle models individually bc it can't pickle >4GB
+            with open("Pickle/EP Models/" + type(model).__name__, 'wb') as file:
+                pickle.dump(model, file)
+
         with open("Pickle/gamelist", 'wb') as file:
             pickle.dump(Globals.gamelist, file)
         with open("Pickle/SCOREvals", 'wb') as file:
@@ -339,18 +356,14 @@ def redraw_plots():
     return None
 
 
-REPARSE_DATA = True
-RECALCULATE_EP = False
+REPARSE_DATA = False
+RECALCULATE_EP = True
 RECALCULATE_WP = True
 RECALCULATE_FG = True
 DRAW_PLOTS = True
 
-'''
-TODO: Make these one-liners in __main__
-'''
 
 reparse()
-EPClass.EP_regression()
 recalc_ep()
 recalc_wp()
 recalc_fg()
@@ -379,10 +392,6 @@ print("ALL DONE", Functions.timestamp())
 
 # TODO: What if we changed a lot of this shit to numpy variables? And we can do the same in all the objects and really streamline the whole thing.
 Would we see speed improvements? Maybe on som of the more complex shit, but I think it all gets fed around as numpy anyway in the background, or at least as C code.
-
-# TODO: Convert this to Git instead of Google Drive for safekeeping
-
-# TODO: Adding "return None" to the end of functions allows them to be collapsed in VS
 
 # TODO: Add a kick returner function like passer, receiver, tackler
 

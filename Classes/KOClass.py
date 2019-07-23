@@ -18,21 +18,20 @@ class KO():
 
     def __init__(self, ydline):
         self.YDLINE = ydline
-        self.N = 0
         self.EP = numpy.array([None, None, None], dtype='Float64')
         self.EP_ARRAY = []
         self.BOOTSTRAP = None
 
     def calculate(self):
-        if self.N:  # Obviously not calculating if there's nothing
+        if len(self.EP_ARRAY):  # Obviously not calculating if there's nothing
             try:
-                self.EP[1] = sum(self.EP_ARRAY) / self.N
+                self.EP[1] = sum(self.EP_ARRAY) / len(self.EP_ARRAY)
             except Exception as err:
-                print("KO calc ERROR", self.YDLINE, self.N, self.EP_ARRAY)
+                print("KO calc ERROR", self.YDLINE, self.EP_ARRAY)
                 print(err)
 
     def boot(self):
-        if self.N > 10:
+        if len(self.EP_ARRAY) > 10:
             self.BOOTSTRAP = numpy.sort(numpy.array([numpy.average(
                 numpy.random.choice(self.EP_ARRAY, self.N, replace=True))
                 for _ in range(Globals.BOOTSTRAP_SIZE)], dtype='f4'))
@@ -82,11 +81,10 @@ def KO_EP():
         for g, game in enumerate(Globals.gamelist):  # This probably doesn't need enumerating
             for p, play in enumerate(game.playlist):
                 if play.ODK == "KO":
-                    KO_ARRAY[play.YDLINE].N += 1
                     if play.score_play:
                         KO_ARRAY[play.YDLINE].EP_ARRAY.append(Globals.score_values[play.score_play][1] * (1 if play.score_play_is_off else -1))
                     else:
-                        for n, nextPlay in enumerate(game.playlist[p + 1:]):
+                        for nextPlay in game.playlist[p + 1:]:
                             if nextPlay.ODK == "OD":
                                 KO_ARRAY[play.YDLINE].EP_ARRAY.append(EPClass.EP_ARRAY[nextPlay.DOWN][nextPlay.DISTANCE][nextPlay.YDLINE].EP[1] * (1 if nextPlay.OFFENSE == play.OFFENSE else -1))
                                 break
