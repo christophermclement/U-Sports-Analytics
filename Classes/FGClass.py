@@ -30,15 +30,15 @@ class FG():
         self.YDLINE = ydline
         #self.N = self.GOOD = self.ROUGE = self.MISSED = 0  # TODO: Delete this line
 
-        self.counts = {"GOOD" : numpy.float64(0),
-                       "ROUGE" : numpy.float64(0),
-                       "MISSED" : numpy.float64(0)}
+        self.counts = {"GOOD" : numpy.float(0),
+                       "ROUGE" : numpy.float(0),
+                       "MISSED" : numpy.float(0)}
 
-        self.probabilities = {"GOOD" : numpy.array([None, None, None], dtype='Float64'),
-                              "ROUGE" : numpy.array([None, None, None], dtype='Float64'),
-                              "MISSED" : numpy.array([None, None, None], dtype='Float64')}
+        self.probabilities = {"GOOD" : numpy.array([None, None, None], dtype='float'),
+                              "ROUGE" : numpy.array([None, None, None], dtype='float'),
+                              "MISSED" : numpy.array([None, None, None], dtype='float')}
 
-        self.EP = numpy.array([None, None, None], dtype='Float64')
+        self.EP = numpy.array([None, None, None], dtype='float')
         self.BOOTSTRAP = Globals.DummyArray
         self.EP_ARRAY = []
 
@@ -50,7 +50,6 @@ class FG():
         if sum(self.counts.values()) > 0:
             for outcome in self.counts:
                 self.probabilities[outcome][1] = self.counts[outcome] / sum(self.counts.values())
-
             self.EP[1] = sum(self.EP_ARRAY) / sum(self.counts.values())
         return None
 
@@ -58,13 +57,13 @@ class FG():
         '''
         Reset all the attributes because we're iterating
         '''
-        counts = {"GOOD" : numpy.float64(0),
-                 "ROUGE" : numpy.float64(0),
-                 "MISSED" : numpy.float64(0)}
+        counts = {"GOOD" : numpy.float(0),
+                 "ROUGE" : numpy.float(0),
+                 "MISSED" : numpy.float(0)}
 
-        probabilities = {"GOOD" : numpy.array([None, None, None], dtype='Float64'),
-                        "ROUGE" : numpy.array([None, None, None], dtype='Float64'),
-                        "MISSED" : numpy.array([None, None, None], dtype='Float64')}
+        probabilities = {"GOOD" : numpy.array([None, None, None], dtype='float'),
+                        "ROUGE" : numpy.array([None, None, None], dtype='float'),
+                        "MISSED" : numpy.array([None, None, None], dtype='float')}
 
         self.EP = [None, None, None]
         self.BOOTSTRAP = Globals.DummyArray
@@ -82,11 +81,11 @@ class FG():
             print(self.EP_ARRAY)
             self.BOOTSTRAP =\
                 numpy.sort(numpy.array([numpy.average(numpy.random.choice(
-                        self.EP_ARRAY, sum(self.counts.values()), replace=True))
+                        self.EP_ARRAY, len(self.EP_ARRAY), replace=True))
                         for _ in range(Globals.BOOTSTRAP_SIZE)], dtype='f4'))
             self.EP[0] = self.BOOTSTRAP[int(Globals.BOOTSTRAP_SIZE * Globals.CONFIDENCE - 1)]
 
-            self.EP[2] = self.BOOTSTRAP[int(Globals.BOOTSTRAP_SIZE * (1-Globals.CONFIDENCE))]
+            self.EP[2] = self.BOOTSTRAP[int(Globals.BOOTSTRAP_SIZE * (1 - Globals.CONFIDENCE))]
         return None
 
 
@@ -300,11 +299,11 @@ def FG_EP():
                 if play.ODK == "FG" and play.DOWN:  # avoid PATs
                     FG_ARRAY[play.YDLINE].counts[play.FG_RSLT] += 1
                     if play.score_play:
-                        FG_ARRAY[play.YDLINE].EP_ARRAY.append(Globals.score_values[play.score_play][1] * (1 if play.score_play_is_off else -1))
+                        FG_ARRAY[play.YDLINE].EP_ARRAY.append(numpy.float(Globals.score_values[play.score_play][1] * (1 if play.score_play_is_off else -1)))
                     else:
                         for n, nextPlay in enumerate(game.playlist[p + 1:]):
                             if nextPlay.ODK == "OD":
-                                FG_ARRAY[play.YDLINE].EP_ARRAY.append(EPClass.EP_ARRAY[nextPlay.DOWN][nextPlay.DISTANCE][nextPlay.YDLINE].EP[1] * (1 if nextPlay.OFFENSE == play.OFFENSE else -1))
+                                FG_ARRAY[play.YDLINE].EP_ARRAY.append(numpy.float(EPClass.EP_ARRAY[nextPlay.DOWN][nextPlay.DISTANCE][nextPlay.YDLINE].EP[1] * (1 if nextPlay.OFFENSE == play.OFFENSE else -1)))
                                 break
     except Exception as err:
         print("FG EP ERROR", play.MULE, play.playdesc)

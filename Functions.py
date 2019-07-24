@@ -55,7 +55,7 @@ def BinomLow(X, N, C):
     '''
     P = X / N  # Probability of success
     V = P / 2  # Half of probability
-    L = numpy.float64(0.0)
+    L = numpy.float(0.0)
     H = P
     while (H - L) > 10 ** (-12):  # TODO: Crank up the precision if we want
         if Binom(N, V, X, N) > C:
@@ -78,7 +78,7 @@ def BinomHigh(X, N, C):
     P = X / N
     V = (1 + P) / 2
     L = P
-    H = numpy.float64(1.0)
+    H = numpy.float(1.0)
     while (H - L) > 10 ** (-12):
         if Binom(N, V, 0, X) < C:
             H = V
@@ -116,7 +116,7 @@ def BootCompare(arrA, arrB):
         else:
             count += Globals.BOOTSTRAP_SIZE
     count /= Globals.BOOTSTRAP_SIZE**2
-    return numpy.float64(count)
+    return numpy.float(count)
 
 
 

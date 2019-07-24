@@ -45,7 +45,7 @@ def score_bootstrap():
     '''
     print("Bootstrapping scores", Functions.timestamp())
     Globals.TDval_BOOTSTRAP =\
-        numpy.sort(6 + KOClass.KO_ARRAY[65].BOOTSTRAP + numpy.random.binomial(FGClass.FG_ARRAY[5].N, FGClass.FG_ARRAY[5].P_GOOD[1], Globals.BOOTSTRAP_SIZE) / FGClass.FG_ARRAY[5].N)
+        numpy.sort(6 + KOClass.KO_ARRAY[65].BOOTSTRAP + numpy.random.binomial(FGClass.FG_ARRAY[5].N, FGClass.FG_ARRAY[5].P_GOOD[1], Globals.BOOTSTRAP_SIZE) / len(FGClass.FG_ARRAY[5]))
     Globals.ROUGEval_BOOTSTRAP = numpy.sort(1 - EPClass.EP_ARRAY[1][10][75].BOOTSTRAP)
 
     if EPClass.EP_ARRAY[1][10][75].EP[1] > (-1) * KOClass.KO_ARRAY[65].EP[1]:
@@ -78,10 +78,10 @@ def iterate_scores():
     '''
     print("Iterating to find score values", Functions.timestamp())
     #TODO: Consider moving precision to a numpy.float128 type to get stupid levels of precision. At that point it's just an academic exercise in learning how to use numpy
-    PRECISION = numpy.float64(100.0)  # This is the measure of convergence of score values
-    TEMP = numpy.float64(0.0)  # Just a dummy to allow us to determine the change in value
+    PRECISION = numpy.float(100.0)  # This is the measure of convergence of score values
+    TEMP = numpy.float(0.0)  # Just a dummy to allow us to determine the change in value
     EPClass.EP_calculate()  # Need initial values for EP
-    while PRECISION:  # Can adjust precision as needed
+    while PRECISION > 10 ** -15:  # Can adjust precision as needed
         EPClass.EP_calculate()
         KOClass.KO_wipe()
         FGClass.FG_wipe()
@@ -186,6 +186,7 @@ def reparse():
             with open("Pickle/Games/" + game.game_statement, 'wb') as file:
                 pickle.dump(game, file)
                 print("pickled", g, " of ", len(Globals.gamelist), "games", end='\r')
+        print()  # Just deals with the newline issue
         with open("Pickle/score_values", 'wb') as file:
             pickle.dump(Globals.score_values, file)
         with open("Pickle/P1D_ARRAY", 'wb') as file:
@@ -386,7 +387,7 @@ print("ALL DONE", Functions.timestamp())
 '''
 # TODO: Convert all references to Globals.SCOREvals to the new dict, and fix up the tricky shit.
 
-# TODO: Consider changing all float64 to longdouble, because why the fuck not
+# TODO: Consider changing all float to longdouble, because why the fuck not
 
 # TODO: rename the stuff like EP_models to make more sense, and create the parallel EP_classification and EP_regression, do the same for FG
 

@@ -56,7 +56,6 @@ class play():
         self.GAIN = None
         self.TIME = None
         
-        #self.SCORING_PLAY = None
         self.score_play = None
         self.score_play_is_off = None
 

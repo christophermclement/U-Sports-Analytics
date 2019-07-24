@@ -30,7 +30,7 @@ class EP():
         self.DOWN = down
         self.DISTANCE = distance
         self.YDLINE = yardline
-        self.EP = numpy.array([None, None, None], dtype = 'Float64')
+        self.EP = numpy.array([None, None, None], dtype = 'float')
         # self.SMOOTHED = None  # TODO: Do we even use this anywhere?
 
         # These are in the standard order
@@ -84,7 +84,7 @@ class EP():
                         numpy.average(
                          numpy.random.choice(
                              [y for x in [self.Score_Counts[x] * [Globals.score_values[x[0]][1] * (1 if x[1] else -1)] for x in self.Score_Counts] for y in x],
-                             sum(self.Score_Counts.values()), replace=True)) for _ in range(Globals.BOOTSTRAP_SIZE)], dtype='float64'))
+                             sum(self.Score_Counts.values()), replace=True)) for _ in range(Globals.BOOTSTRAP_SIZE)], dtype='float'))
 
             self.EP[0] = self.BOOTSTRAP[int(Globals.BOOTSTRAP_SIZE * Globals.CONFIDENCE - 1)]
             self.EP[2] = self.BOOTSTRAP[int(Globals.BOOTSTRAP_SIZE * (1 - Globals.CONFIDENCE))]
@@ -92,8 +92,6 @@ class EP():
     def calculate(self):
         '''
         Calculates Raw EP value
-        TODO: We do that thing where we multiply a list of length 9 by the
-        Globals.SCOREvals so often it should probaby be a separate function
         '''
         if sum(self.Score_Counts.values()):
             self.EP[1] = sum([(self.Score_Counts[score] * Globals.score_values[score[0]][1] * (1 if score[1] else -1)) for score in self.Score_Counts]) / sum(self.Score_Counts.values())
@@ -151,7 +149,7 @@ def EP_regression():
             model.fit(EP_data_x.iloc[train_index],
                       EP_data_y.iloc[train_index].values.ravel())
             outputlist[m].extend(model.predict(EP_data_x.iloc[test_index]))
-            print("    ", type(model).__name__, "fitted", Functions.timestamp())
+            print("\t", type(model).__name__, "fitted", Functions.timestamp())
     print("\tKFolds fitted", Functions.timestamp())
 
     for model in outputlist:
@@ -209,7 +207,7 @@ def EP_classification():
             model.fit(EP_data_x.iloc[train_index],
                       EP_data_y.iloc[train_index].values.ravel())
             outputlist[m].extend(EP_classification_models[m].predict_proba(EP_data_x.iloc[test_index]))
-            print("    ", type(model).__name__, "fitted", Functions.timestamp())
+            print("\t", type(model).__name__, "fitted", Functions.timestamp())
     print("    KFolds fitted", Functions.timestamp())
 
     for model in outputlist:
@@ -238,7 +236,7 @@ def EP_classification():
     # Refit over the entire dataset
     for model in EP_classification_models:
         model.fit(EP_data_x, EP_data_y.values.ravel())
-        print("    ", type(model).__name__, "fitted", Functions.timestamp())
+        print("\t", type(model).__name__, "fitted", Functions.timestamp())
     print("    Full models fitted", Functions.timestamp())
 
     # Assigning values by averaging all instances
@@ -262,7 +260,7 @@ def EP_classification():
                                 [[(ydline.DOWN), ydline.DISTANCE, ydline.YDLINE]])[0]])
                     for model in ydline.EP_probs_list:
                         ydline.EP_list.append(multiply_SCOREvals(model))
-    print("    Array populated", Functions.timestamp())
+    print("\tArray populated", Functions.timestamp())
 
     for model in EP_classification_models:
         if hasattr(model, "coef_"):

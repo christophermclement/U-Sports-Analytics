@@ -20,12 +20,11 @@ class Punt():
     gross, net, and spread
     '''
     def __init__(self, ydline):
-        self.N = 0  # Number of punts from this ydline
         self.YDLINE = ydline
 
         self.EP = [None, None, None]  # Average EP value of this punt
-        self.ep_array = []  # List holding all the EP data
-        self.ep_bootstrap = Globals.DummyArray  # Bootstrap of EP to determine CI
+        self.EP_ARRAY = []  # List holding all the EP data
+        self.EP_BOOTSTRAP = Globals.DummyArray  # Bootstrap of EP to determine CI
 
         self.gross = [None, None, None]
         self.gross_array = []
@@ -44,12 +43,12 @@ class Punt():
         Does the bootstrapping of EP, gross, net, spread, and calculates the
         average and confidence intervals.
         '''
-        if self.N > 10:
-            self.ep_bootstrap = numpy.sort(numpy.array([numpy.average(numpy.random.choice(self.ep_array, self.N, replace=True))
+        if len(self.EP_ARRAY) > 10:
+            self.ep_bootstrap = numpy.sort(numpy.array([numpy.average(numpy.random.choice(self.EP_ARRAY, len(self.EP_ARRAY), replace=True))
                                                         for _ in range(Globals.BOOTSTRAP_SIZE)], dtype='f4'))
             self.EP =\
                 [self.ep_bootstrap[int(Globals.BOOTSTRAP_SIZE * Globals.CONFIDENCE - 1)],
-                 (sum(self.ep_array) / float(len(self.ep_array))),
+                 (sum(self.EP_ARRAY) / float(len(self.EP_ARRAY))),
                  self.ep_bootstrap[int(Globals.BOOTSTRAP_SIZE * (1 - Globals.CONFIDENCE))]]
 
         if len(self.gross_array) > 10:
@@ -100,54 +99,14 @@ def P_EP():
     try:
         for g, game in enumerate(Globals.gamelist):
             for p, play in enumerate(game.playlist):
-                if play.ODK == "P":
+                if play.ODK == "P" and not(play.score_play == "SAFETY" and play.score_play_is_off):
                     # Need to filter out intentional safeties
-                    if play.SCORING_PLAY != "O-SAFETY":
-                        if play.puntGross:
-                            PUNT_ARRAY[play.YDLINE].gross_array.append(play.puntGross)
-                        if play.puntNet:
-                            PUNT_ARRAY[play.YDLINE].net_array.append(play.puntNet)
-                        if play.puntSpread:
-                            PUNT_ARRAY[play.YDLINE].spread_array.append(play.puntSpread)
-                        PUNT_ARRAY[play.YDLINE].N += 1
-                        if play.SCORING_PLAY == "O-TD":
-                            PUNT_ARRAY[play.YDLINE].ep_array.append(
-                                Globals.SCOREvals[3][1])
-                        elif play.SCORING_PLAY == "D-TD":
-                            PUNT_ARRAY[play.YDLINE].ep_array.append(
-                                Globals.SCOREvals[3][1] * (-1))
-                        elif play.SCORING_PLAY == "O-ROUGE":
-                            PUNT_ARRAY[play.YDLINE].ep_array.append(
-                                Globals.SCOREvals[1][1])
-                        elif play.SCORING_PLAY == "D-SAFETY":
-                            PUNT_ARRAY[play.YDLINE].ep_array.append(
-                                Globals.SCOREvals[2][1] * (-1))
-                        else:
-                            for n, nextPlay in enumerate(game.playlist[p + 1:]):
-                                if nextPlay.ODK == "OD":
-                                    if nextPlay.OFFENSE == play.OFFENSE:
-                                        PUNT_ARRAY[play.YDLINE].ep_array.append(
-                                            EPClass.EP_ARRAY[nextPlay.DOWN]
-                                            [nextPlay.DISTANCE][nextPlay.YDLINE].EP[1])
-                                        if EPClass.EP_ARRAY[nextPlay.DOWN]\
-                                                [nextPlay.DISTANCE]\
-                                                [nextPlay.YDLINE].EP[1] is None:
-                                            print("PUNT ERROR", nextPlay.MULE, nextPlay.playdesc)
-                                    elif nextPlay.OFFENSE == play.DEFENSE:
-                                        PUNT_ARRAY[play.YDLINE].ep_array.\
-                                            append(EPClass.EP_ARRAY[nextPlay.DOWN][nextPlay.DISTANCE]
-                                                [nextPlay.YDLINE].EP[1] * (-1))
-                                    else:  # error handling
-                                        print("ODK ERROR:", play.playdesc, play.OFFENSE)
-                                    break
-                                # End of first half
-                                elif nextPlay.QUARTER == 3 and game.playlist[n - 1] == 2:
-                                    PUNT_ARRAY[play.YDLINE].ep_array.append(Globals.SCOREvals[4][1])
-                                # end of second half into overtime
-                                elif nextPlay.QUARTER == 5 and game.playlist[n-1] == 4:
-                                    PUNT_ARRAY[play.YDLINE].ep_array.append(Globals.SCOREvals[4][1])
-                            else:  # handles END OF GAME situation
-                                PUNT_ARRAY[play.YDLINE].ep_array.append(Globals.SCOREvals[4][1])
+                    if play.score_play:
+                        PUNT_ARRAY[play.YDLINE].EP_ARRAY.append(numpy.float(Globals.score_values[play.score_play][1] * (1 if play.score_play_is_off else -1)))
+                    else:
+                        for n, nextPlay in enumerate(game.playlist[p + 1:]):
+                            PUNT_ARRAY[play.YDLINE].EP_ARRAY.append(numpy.float(EPClass.EP_ARRAY[nextPlay.DOWN][nextPlay.DISTANCE][nextPlay.YDLINE].EP[1] * (1 if nextPlay.OFFENSE == play.OFFENSE else -1)))
+                            break
     except Exception as err:
         print(play.MULE, play.playdesc)
         print(err)

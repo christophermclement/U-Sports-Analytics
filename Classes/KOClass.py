@@ -18,7 +18,7 @@ class KO():
 
     def __init__(self, ydline):
         self.YDLINE = ydline
-        self.EP = numpy.array([None, None, None], dtype='Float64')
+        self.EP = numpy.array([None, None, None], dtype='float')
         self.EP_ARRAY = []
         self.BOOTSTRAP = None
 
@@ -33,7 +33,7 @@ class KO():
     def boot(self):
         if len(self.EP_ARRAY) > 10:
             self.BOOTSTRAP = numpy.sort(numpy.array([numpy.average(
-                numpy.random.choice(self.EP_ARRAY, self.N, replace=True))
+                numpy.random.choice(self.EP_ARRAY, len(self.EP_ARRAY), replace=True))
                 for _ in range(Globals.BOOTSTRAP_SIZE)], dtype='f4'))
             self.EP[2] = self.BOOTSTRAP[int(Globals.BOOTSTRAP_SIZE * (1 - Globals.CONFIDENCE))]
             self.EP[0] = self.BOOTSTRAP[int(Globals.BOOTSTRAP_SIZE * Globals.CONFIDENCE - 1)]
@@ -42,8 +42,7 @@ class KO():
         '''
         This just resets the value of all the attributes. We need it when we're iterating
         '''
-        self.N = 0
-        self.EP = numpy.array([None, None, None], dtype='Float64')
+        self.EP = numpy.array([None, None, None], dtype='float')
         self.EP_ARRAY = []
         self.BOOTSTRAP = None
 
