@@ -22,6 +22,7 @@ import sys
 import itertools
 import gc
 import os
+import random
 
 
 def import_mule(csvmule, mule):
@@ -44,11 +45,14 @@ def score_bootstrap():
     This function calls all the bootstrap functions for the score values
     '''
     print("Bootstrapping scores", Functions.timestamp())
-    Globals.TDval_BOOTSTRAP =\
-        numpy.sort(6 + KOClass.KO_ARRAY[65].BOOTSTRAP + numpy.random.binomial(FGClass.FG_ARRAY[5].N, FGClass.FG_ARRAY[5].P_GOOD[1], Globals.BOOTSTRAP_SIZE) / len(FGClass.FG_ARRAY[5]))
-    Globals.ROUGEval_BOOTSTRAP = numpy.sort(1 - EPClass.EP_ARRAY[1][10][75].BOOTSTRAP)
+    # The value of a TD is the 6 nominal points, the probability of the 1-pt (until 2-pt becomes more popular we'll simplify) and the value of the resultant KO)
+    Globals.TDval_BOOTSTRAP = \
+        numpy.sort(6 
+                   + KOClass.KO_ARRAY[65].BOOTSTRAP 
+                   + numpy.random.binomial(sum(FGClass.FG_ARRAY[5].counts.values()), FGClass.FG_ARRAY[5].probabilities["GOOD"][1], Globals.BOOTSTRAP_SIZE) / len(FGClass.FG_ARRAY[5].EP_ARRAY))
+    Globals.ROUGEval_BOOTSTRAP = numpy.sort(1 - EPClass.EP_ARRAY[1][10][75].BOOTSTRAP)  # The adjustment for the rouge is purely based on the value of the resultant possession
 
-    if EPClass.EP_ARRAY[1][10][75].EP[1] > (-1) * KOClass.KO_ARRAY[65].EP[1]:
+    if EPClass.EP_ARRAY[1][10][75].EP[1] > (-1) * KOClass.KO_ARRAY[65].EP[1]:  # Value of a FG has to assume a rational decision between aking the ball or the KO
         Globals.FGval_BOOTSTRAP = numpy.sort(3 - EPClass.EP_ARRAY[1][10][75].BOOTSTRAP)
     else:
         Globals.FGval_BOOTSTRAP = numpy.sort(3 + KOClass.KO_ARRAY[65].BOOTSTRAP)
@@ -58,18 +62,17 @@ def score_bootstrap():
     else:
         Globals.SAFETYval_BOOTSTRAP = numpy.sort(-2 + KOClass.KO_ARRAY[75].BOOTSTRAP)
 
-    Globals.SCOREvals[3][2] = Globals.TDval_BOOTSTRAP[int(len(Globals.TDval_BOOTSTRAP) * (1 - Globals.CONFIDENCE))]
-    Globals.SCOREvals[3][0] = Globals.TDval_BOOTSTRAP[int(len(Globals.TDval_BOOTSTRAP) * (Globals.CONFIDENCE) - 1)]
-    Globals.SCOREvals[0][2] = Globals.FGval_BOOTSTRAP[int(len(Globals.FGval_BOOTSTRAP) * (1 - Globals.CONFIDENCE))]
-    Globals.SCOREvals[0][0] = Globals.FGval_BOOTSTRAP[int(len(Globals.FGval_BOOTSTRAP) * (Globals.CONFIDENCE) - 1)]
-    Globals.SCOREvals[1][2] = Globals.ROUGEval_BOOTSTRAP[int(len(Globals.ROUGEval_BOOTSTRAP) * (1 - Globals.CONFIDENCE))]
-    Globals.SCOREvals[1][0] = Globals.ROUGEval_BOOTSTRAP[int(len(Globals.ROUGEval_BOOTSTRAP) * (Globals.CONFIDENCE) - 1)]
-    Globals.SCOREvals[2][2] = Globals.SAFETYval_BOOTSTRAP[int(len(Globals.SAFETYval_BOOTSTRAP) * (1 - Globals.CONFIDENCE))]
-    Globals.SCOREvals[2][0] = Globals.SAFETYval_BOOTSTRAP[int(len(Globals.SAFETYval_BOOTSTRAP) * (Globals.CONFIDENCE) - 1)]
-    print("TD      {0:5.4f}     {1:5.4f}     {2:5.4f}".format(*Globals.SCOREvals[3]))
-    print("FG      {0:5.4f}     {1:5.4f}     {2:5.4f}".format(*Globals.SCOREvals[0]))
-    print("ROUGE   {0:5.4f}     {1:5.4f}     {2:5.4f}".format(*Globals.SCOREvals[1]))
-    print("SAFETY  {0:5.4f}     {1:5.4f}     {2:5.4f}".format(*Globals.SCOREvals[2]))
+    Globals.score_values["TD"][2] = Globals.TDval_BOOTSTRAP[int(len(Globals.TDval_BOOTSTRAP) * (1 - Globals.CONFIDENCE))]
+    Globals.score_values["TD"][0] = Globals.TDval_BOOTSTRAP[int(len(Globals.TDval_BOOTSTRAP) * (Globals.CONFIDENCE) - 1)]
+    Globals.score_values["FG"][2] = Globals.FGval_BOOTSTRAP[int(len(Globals.FGval_BOOTSTRAP) * (1 - Globals.CONFIDENCE))]
+    Globals.score_values["FG"][0] = Globals.FGval_BOOTSTRAP[int(len(Globals.FGval_BOOTSTRAP) * (Globals.CONFIDENCE) - 1)]
+    Globals.score_values["ROUGE"][2] = Globals.ROUGEval_BOOTSTRAP[int(len(Globals.ROUGEval_BOOTSTRAP) * (1 - Globals.CONFIDENCE))]
+    Globals.score_values["ROUGE"][0] = Globals.ROUGEval_BOOTSTRAP[int(len(Globals.ROUGEval_BOOTSTRAP) * (Globals.CONFIDENCE) - 1)]
+    Globals.score_values["SAFETY"][2] = Globals.SAFETYval_BOOTSTRAP[int(len(Globals.SAFETYval_BOOTSTRAP) * (1 - Globals.CONFIDENCE))]
+    Globals.score_values["SAFETY"][0] = Globals.SAFETYval_BOOTSTRAP[int(len(Globals.SAFETYval_BOOTSTRAP) * (Globals.CONFIDENCE) - 1)]
+    for score in Globals.score_values:
+        print(score, "\t", Globals.score_values[score])
+    return None
 
 
 def iterate_scores():
@@ -119,13 +122,13 @@ def iterate_scores():
             if abs(TEMP - Globals.score_values["SAFETY"][1]) / Globals.score_values["SAFETY"][1]\
             > PRECISION else PRECISION
         print("% change: {0:4.2e}".format(PRECISION), Functions.timestamp())
-    print([x[1] for x in Globals.score_values.values()], Functions.timestamp())
+        print([x[1] for x in Globals.score_values.values()], Functions.timestamp())
     return None
 
 
 def parser():
     '''
-    parses the games and plays
+    parses the games and plays by calling all the functions within the game and play options
     '''
     print("Parsing games and plays", Functions.timestamp())
     for game in Globals.gamelist:
@@ -208,7 +211,8 @@ def reparse():
             with open("Pickle/Games/" + file, 'rb') as game:
                 Globals.gamelist.append(pickle.load(game))
                 print("unpickled", f, " of ", len(os.listdir("Pickle/Games")), "games", end='\r')
-
+        print()
+        random.shuffle(Globals.gamelist)
         with open("Pickle/P1D_ARRAY", 'rb') as file:
             P1DClass.P1D_ARRAY = pickle.load(file)
         with open("Pickle/P1D_GOAL_ARRAY", 'rb') as file:
@@ -255,6 +259,8 @@ def recalc_ep():
         EPClass.EP_classification()
         EPClass.EP_regression()
         
+        for game in Globals.gamelist:
+            game.EPA_FN()
 
         print("    pickling", Functions.timestamp())
         with open("Pickle/EPARRAY", 'wb') as file:
@@ -267,8 +273,12 @@ def recalc_ep():
             with open("Pickle/EP Models/" + type(model).__name__, 'wb') as file:
                 pickle.dump(model, file)
 
-        with open("Pickle/gamelist", 'wb') as file:
-            pickle.dump(Globals.gamelist, file)
+        for g, game in enumerate(Globals.gamelist):  # Pickle all the games in their own directory
+            with open("Pickle/Games/" + game.game_statement, 'wb') as file:
+                pickle.dump(game, file)
+                print("pickled", g, " of ", len(Globals.gamelist), "games", end='\r')
+        print()  # Just deals with the newline issue
+
         with open("Pickle/SCOREvals", 'wb') as file:
             pickle.dump(Globals.SCOREvals, file)
         with open("Pickle/PUNT_ARRAY", 'wb') as file:
@@ -357,7 +367,7 @@ def redraw_plots():
     return None
 
 
-REPARSE_DATA = False
+REPARSE_DATA = True
 RECALCULATE_EP = True
 RECALCULATE_WP = True
 RECALCULATE_FG = True

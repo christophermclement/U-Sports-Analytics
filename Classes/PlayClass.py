@@ -444,8 +444,8 @@ class play():
         TODO: Clean this up with the new approach to EP models
         '''
         self.raw_EP = None
-        self.EP_probs_list = []
-        self.EP_list = []
+        self.EP_regression_list = []
+        self.EP_classification_list = []
         return None
 
     def WP_wipe(self):
@@ -454,32 +454,6 @@ class play():
         TODO: Clean this up with the new approach to modeling
         '''
         self.WP_list = []
-        return None
-
-    def EP_assign(self):
-        '''
-        Gets the EP value of the play by converting from the classification probabilities
-        TODO: Fix this with the new way we handle score counts and values
-        '''
-        play.EPA_list = [(0
-            - probs[0] * Globals.SCOREvals[0][1]
-            - probs[1] * Globals.SCOREvals[1][1]
-            - probs[2] * Globals.SCOREvals[2][1]
-            - probs[3] * Globals.SCOREvals[3][1]
-            + probs[5] * Globals.SCOREvals[0][1]
-            + probs[6] * Globals.SCOREvals[1][1]
-            + probs[7] * Globals.SCOREvals[2][1]
-            + probs[8] * Globals.SCOREvals[3][1]) for probs in self.EP_probs_list]
-        if self.DISTANCE < Globals.DISTANCE_LIMIT + 1:
-            self.raw_EP = EPClass.EP_ARRAY[self.DOWN][self.DISTANCE][self.YDLINE].EP
-        else:
-            '''
-            OK so the problem here is that a play like 3&50, 45 has happened, but we need to convert it into reality, 
-            and so we reduced the distance to 25, but that just doesn't always work because 3&25, 45 is quite likely to have never happened.
-            '''
-            self.raw_EP = EPClass.EP_ARRAY[self.DOWN][Globals.DISTANCE_LIMIT - 1][self.YDLINE].EP
-        if self.raw_EP[1] is None:
-            print("EP assign error", self.DOWN, self.DISTANCE, self.YDLINE)
         return None
 
     def FG_wipe(self):

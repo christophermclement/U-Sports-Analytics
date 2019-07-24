@@ -634,44 +634,26 @@ class game():
         TODO: Rework with the new system for handling EP_INPUT
         TODO: Rework with the new system of EP classification/regression models
         '''
+        for play in self.playlist:
+            play.EP_classification_values = [[x * Globals.score_values[y[0], y[1]] for x, y in zip(model, list(sorted(EPClass[0][0][0].Score_Counts.keys())))] for model in play.EP_classification_list]
         try:
             for p, play in enumerate(self.playlist):
-                if play == self.playlist[-1] and play.SCORING_PLAY is None:  # End of game
+                
+                if play == self.playlist[-1] and play.score_play is None:  # End of game
                     play.raw_EPA == -play.raw_EP[1]
                     play.EPA_list = [-x for x in play.EP_list]
-                elif play.SCORING_PLAY == "D-SAFETY":
-                    play.raw_EPA = -Globals.SCOREvals[2][1] - play.raw_EP[1]
-                    play.EPA_list = [(-Globals.SCOREvals[2][1] - x) for x in play.EP_list]
-                elif play.SCORING_PLAY == "D-TD":
-                    play.raw_EPA = -Globals.SCOREvals[3][1] - play.raw_EP[1]
-                    play.EPA_list = [(-Globals.SCOREvals[3][1] - x) for x in play.EP_list]
-                elif play.SCORING_PLAY == "O-FG":
-                    play.raw_EPA = Globals.SCOREvals[0][1] - play.raw_EP[1]
-                    play.EPA_list = [(Globals.SCOREvals[0][1] - x) for x in play.EP_list]
-                elif play.SCORING_PLAY == "O-ROUGE":
-                    play.raw_EPA = Globals.SCOREvals[1][1] - play.raw_EP[1]
-                    play.EPA_list = [(Globals.SCOREvals[1][1] - x) for x in play.EP_list]
-                elif play.SCORING_PLAY == "O-SAFETY":
-                    play.raw_EPA = Globals.SCOREvals[2][1] - play.raw_EP[1]
-                    play.EPA_list = [(Globals.SCOREvals[2][1] - x) for x in play.EP_list]
-                elif play.SCORING_PLAY == "O-TD":
-                    play.raw_EPA = Globals.SCOREvals[3][1] - play.raw_EP[1]
-                    play.EPA_list = [(Globals.SCOREvals[3][1] - x) for x in play.EP_list]
-                elif play.SCORING_PLAY:
-                    print("EPA ERROR, SCORING PLAY", self.MULE, play.DOWN, play.DISTANCE, play.YDLINE, play.playdesc, play.SCORING_PLAY)
-                elif play.QUARTER == 2 and self.playlist[p + 1].QUARTER == 3 and play.SCORING_PLAY is None:  # Halftime
-                    play.raw_EPA = -play.raw_EP[1]
-                    play.EPA_list = [-x for x in play.EP_list]
-                elif play.QUARTER == 4 and self.playlist[p + 1].QUARTER == 5 and play.SCORING_PLAY is None:  # OT
-                    play.raw_EPA == -play.raw_EP[1]
-                    play.EPA_list = [-x for x in play.EP_list]
+                elif play.score_play:
+                    play.raw_EPA = Globals.score_values[play.score_play] * (1 if play.score_play_is_off else -1) - play.raw_EP[1]
+                    play.EPA_classification = numpy.subtract(Globals.score_values[play.score_play] * (1 if play.score_play_is_off else -1), play.EP_regression_list)
+                    play.EPA_regression = numpy.subtract(Globals.score_values[play.score_play] * (1 if play.score_play_is_off else -1), play.EP_classification_values)
                 else:  # Almost every other condition
                     if play.OFFENSE == self.playlist[p + 1].OFFENSE:
-                        play.raw_EPA = self.playlist[p + 1].raw_EP[1] - play.raw_EP[1]
-                        play.EPA_list = list(numpy.subtract(self.playlist[p + 1].EP_list, play.EP_list))
+                        play.raw_EPA = self.playlist[p + 1].raw_EP[1] * (1 if play.OFFENSE == self.playlist[p+1].OFFENSE else -1) - play.raw_EP[1]
+                        play.EPA_ = list(numpy.subtract(self.playlist[p + 1].EP_list, play.EP_list))
                     else:
                         play.raw_EPA = -self.playlist[p + 1].raw_EP[1] - play.raw_EP[1]
-                        play.EPA_list = list(numpy.subtract(numpy.negative(self.playlist[p + 1].EP_list), play.EP_list))
+                        play.EPA_classification_values = list(numpy.subtract(self.playlist[p + 1].EPA_classification_values * (1 if play.OFFENSE == self.playlist[p+1].OFFENSE else -1), play.EPA_classification_values))
+                        play.EPA_regression_list = list(numpy.subtract(self.playlist[p + 1].EPA_regression_list * (1 if play.OFFENSE == self.playlist[p+1].OFFENSE else -1), play.EPA_regression_list))
         except Exception as err:
             print("EPA Error", self.MULE, play.DOWN, play.DISTANCE, play.YDLINE, play.playdesc)
             print(err)

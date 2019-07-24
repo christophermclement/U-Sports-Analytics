@@ -29,6 +29,7 @@ class KO():
             except Exception as err:
                 print("KO calc ERROR", self.YDLINE, self.EP_ARRAY)
                 print(err)
+        return None
 
     def boot(self):
         if len(self.EP_ARRAY) > 10:
@@ -37,6 +38,7 @@ class KO():
                 for _ in range(Globals.BOOTSTRAP_SIZE)], dtype='f4'))
             self.EP[2] = self.BOOTSTRAP[int(Globals.BOOTSTRAP_SIZE * (1 - Globals.CONFIDENCE))]
             self.EP[0] = self.BOOTSTRAP[int(Globals.BOOTSTRAP_SIZE * Globals.CONFIDENCE - 1)]
+        return None
 
     def wipe(self):
         '''

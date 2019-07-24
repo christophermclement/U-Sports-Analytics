@@ -28,7 +28,6 @@ class FG():
     '''
     def __init__(self, ydline):
         self.YDLINE = ydline
-        #self.N = self.GOOD = self.ROUGE = self.MISSED = 0  # TODO: Delete this line
 
         self.counts = {"GOOD" : numpy.float(0),
                        "ROUGE" : numpy.float(0),
@@ -78,13 +77,11 @@ class FG():
             for outcome in self.probabilities:
                 self.probabilities[outcome][2] = Functions.BinomHigh(self.counts[outcome], sum(self.counts.values()), Globals.CONFIDENCE)
                 self.probabilities[outcome][0] = Functions.BinomLow(self.counts[outcome], sum(self.counts.values()), Globals.CONFIDENCE)
-            print(self.EP_ARRAY)
             self.BOOTSTRAP =\
                 numpy.sort(numpy.array([numpy.average(numpy.random.choice(
                         self.EP_ARRAY, len(self.EP_ARRAY), replace=True))
                         for _ in range(Globals.BOOTSTRAP_SIZE)], dtype='f4'))
             self.EP[0] = self.BOOTSTRAP[int(Globals.BOOTSTRAP_SIZE * Globals.CONFIDENCE - 1)]
-
             self.EP[2] = self.BOOTSTRAP[int(Globals.BOOTSTRAP_SIZE * (1 - Globals.CONFIDENCE))]
         return None
 
