@@ -86,7 +86,8 @@ class play():
         self.EP_classification_list = []
 
         self.raw_EPA = None
-        self.EPA_list = []
+        self.EPA_regression_list = []
+        self.EPA_classification_values = []
         
         self.WP_list = []
         self.WPA_list = []

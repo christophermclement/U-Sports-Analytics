@@ -10,6 +10,7 @@ from metar import Metar
 import csv
 import numpy
 import Classes.PlayClass as PlayClass
+import Classes.EPClass as EPClass
 import Globals
 import math
 import traceback
@@ -635,25 +636,21 @@ class game():
         TODO: Rework with the new system of EP classification/regression models
         '''
         for play in self.playlist:
-            play.EP_classification_values = [[x * Globals.score_values[y[0], y[1]] for x, y in zip(model, list(sorted(EPClass[0][0][0].Score_Counts.keys())))] for model in play.EP_classification_list]
+            play.EP_classification_values = [sum([prob * Globals.score_values[score[0]] * (1 if score[1] else -1) for prob, score in zip(model, Globals.alpha_scores)]) for model in play.EP_classification_list]
+            if play.DISTANCE < Globals.DISTANCE_LIMIT:
+                play.raw_EP = EPClass.EP_ARRAY[play.DOWN][play.DISTANCE][play.YDLINE].EP
+            else:
+                play.raw_EP = EPClass.EP_ARRAY[play.DOWN][Globals.DISTANCE_LIMIT - 1][play.YDLINE].EP
         try:
             for p, play in enumerate(self.playlist):
-                
-                if play == self.playlist[-1] and play.score_play is None:  # End of game
-                    play.raw_EPA == -play.raw_EP[1]
-                    play.EPA_list = [-x for x in play.EP_list]
-                elif play.score_play:
-                    play.raw_EPA = Globals.score_values[play.score_play] * (1 if play.score_play_is_off else -1) - play.raw_EP[1]
-                    play.EPA_classification = numpy.subtract(Globals.score_values[play.score_play] * (1 if play.score_play_is_off else -1), play.EP_regression_list)
-                    play.EPA_regression = numpy.subtract(Globals.score_values[play.score_play] * (1 if play.score_play_is_off else -1), play.EP_classification_values)
+                if play.score_play:
+                    play.raw_EPA = Globals.score_values[play.score_play][1] * (1 if play.score_play_is_off else -1) - play.raw_EP[1]
+                    play.EPA_classification_values = numpy.subtract(Globals.score_values[play.score_play][1] * (1 if play.score_play_is_off else -1), play.EP_classification_values)
+                    play.EPA_regression_list = numpy.subtract(Globals.score_values[play.score_play][1] * (1 if play.score_play_is_off else -1), play.EP_regression_list)
                 else:  # Almost every other condition
-                    if play.OFFENSE == self.playlist[p + 1].OFFENSE:
-                        play.raw_EPA = self.playlist[p + 1].raw_EP[1] * (1 if play.OFFENSE == self.playlist[p+1].OFFENSE else -1) - play.raw_EP[1]
-                        play.EPA_ = list(numpy.subtract(self.playlist[p + 1].EP_list, play.EP_list))
-                    else:
-                        play.raw_EPA = -self.playlist[p + 1].raw_EP[1] - play.raw_EP[1]
-                        play.EPA_classification_values = list(numpy.subtract(self.playlist[p + 1].EPA_classification_values * (1 if play.OFFENSE == self.playlist[p+1].OFFENSE else -1), play.EPA_classification_values))
-                        play.EPA_regression_list = list(numpy.subtract(self.playlist[p + 1].EPA_regression_list * (1 if play.OFFENSE == self.playlist[p+1].OFFENSE else -1), play.EPA_regression_list))
+                    play.raw_EPA = (self.playlist[p + 1].raw_EP[1] * (1 if play.OFFENSE == self.playlist[p+1].OFFENSE else -1) - play.raw_EP[1]) * (1 if play.OFFENSE == self.playlist[p+1].OFFENSE else -1)
+                    play.EPA_regression_list = list(numpy.subtract(self.playlist[p + 1].EP_regression_list, play.EP_regression_list)) * (1 if play.OFFENSE == self.playlist[p+1].OFFENSE else -1)
+                    play.EPA_classification_values = list(numpy.subtract(self.playlist[p + 1].EP_classification_values, play.EP_classification_values)) * (1 if play.OFFENSE == self.playlist[p+1].OFFENSE else -1)
         except Exception as err:
             print("EPA Error", self.MULE, play.DOWN, play.DISTANCE, play.YDLINE, play.playdesc)
             print(err)

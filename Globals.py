@@ -93,9 +93,8 @@ else:
 CONFIDENCE = 0.025  # The one-sided confidence interval size for all statistical tests
 THRESHOLD = 100  # The minimum N to include in the graphs
 DISTANCE_LIMIT = 51  # This is the max size of P(1D), etc. we're accepting. Usually 26 (meaning 25) but we'll try with longer ones.
+alpha_scores = [["FG", False], ["ROUGE", False], ["SAFETY", False], ["TD", False], ["HALF", False], ["FG", True], ["ROUGE", True], ["SAFETY", True], ["TD", True]]
 
-
-# This is a numpy version of SCOREvals with the proper naming convention applied. It's been converted to a dictionary, so it should really simplify a lot of it
 score_values = {"FG": numpy.array([None, 3.0, None], dtype=numpy.dtype('Float64')),
                 "ROUGE": numpy.array([None, 1.0, None], dtype=numpy.dtype('Float64')),
                 "SAFETY": numpy.array([None, -2.0, None], dtype=numpy.dtype('Float64')),

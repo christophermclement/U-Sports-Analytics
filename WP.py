@@ -16,7 +16,7 @@ import sklearn.svm
 import numpy
 import matplotlib.pyplot as plt
 import pandas
-
+import traceback
 import Globals
 import Functions
 
@@ -91,9 +91,9 @@ def WP_Models():
     for train_index, test_index in kf.split(WP_data_x):
         for m, model in enumerate(WP_models):
             model.fit(WP_data_x.iloc[train_index], WP_data_y.iloc[train_index].values.ravel())
-            outputlist[m].extend(WP_models[m].predict_proba(WP_data_x.iloc[test_index]))
-            print("    ", type(model).__name__, "fitted", Functions.timestamp())
-    print("    models fitted", Functions.timestamp())
+            outputlist[m].extend(model.predict_proba(WP_data_x.iloc[test_index]))
+            print("\t", type(model).__name__, "fitted", Functions.timestamp())
+    print("\tmodels fitted", Functions.timestamp())
     
     # Here we're refitting the models on all the data so we can use it for future prediction'
     for model in WP_models:
@@ -101,15 +101,14 @@ def WP_Models():
     
         # We're stripping the model to only P(Win) and ditching P(lose) because it's redundant, and reversing the order so we can later assign it to plays'
     for model in outputlist:
-        for play in model:
-            play = play[1]  # TODO: We have this [1] in here twice, it's there again when we pop. How does that work?
+        model = [play[1] for play in model]
         model.reverse()
     
         # Here we assign each play's predicted WP back into the play's attributes. It's annoying that there's no standard feature to pop from the 
         # beginning of a list, but this was easier than importing yet another library.
     for game in Globals.gamelist:
         for play in game.playlist:
-            play.WP_list = [x.pop()[1] for x in outputlist]
+            play.WP_list = [x.pop() for x in outputlist]
 
     Functions.printFeatures(WP_models)  # Just prints out coefficients and such
 
@@ -127,13 +126,20 @@ def WP_correlation():
     '''
     corr_graph = [[[0, 0] for x in range(101)] for model in WP_models]
 
-    for game in Globals.gamelist:
-        for play in game.playlist:
-            if play.DISTANCE and play.DOWN > 0:
-                for m, model in enumerate(corr_graph):
-                    model[int(round(play.WP_list[m] * 100))][0] += 1
-                    model[int(round(play.WP_list[m] * 100))][1] += play.O_WIN
-    
+    try:
+        for game in Globals.gamelist:
+            for play in game.playlist:
+                if play.DISTANCE and play.DOWN:
+                    for m, model in enumerate(corr_graph):
+                        model[int(round(play.WP_list[m] * 100))][0] += 1
+                        model[int(round(play.WP_list[m] * 100))][1] += play.O_WIN
+    except Exception as err:
+        print("corr_graph error")
+        print(err)
+        print(play.MULE, play.DOWN, play.playdesc)
+        print(play.WP_list)
+        traceback.print_exc()
+
     #General WP correlation
     for m, model in enumerate(corr_graph):
         xdata = numpy.arange(101)

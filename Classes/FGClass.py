@@ -198,16 +198,8 @@ def FG_regression():
                 if play.FG_RSLT and play.METAR:  # Here to handle the one game with no METAR
                     # TODO: Better deal with the FGs missing wind or temp, better nan handling with pandas
                     if play.headwind is not None and play.crosswind is not None and play.METAR.temp is not None:
-                        if play.FG_RSLT == "GOOD":
-                            EP_result = Globals.SCOREvals[0][1]
-                        elif play.FG_RSLT == "ROUGE":
-                            EP_result == Globals.SCOREvals[1][1]
-                        elif play == game.playlist[-1]:
-                            EP_result = 0
-                        elif play.QUARTER == 2 and game.playlist[p+1].QUARTER == 3:
-                            EP_result = 0
-                        elif play.QUARTER == 4 and game.playlist[p+1].QUARTER == 5:
-                            EP_result = 0
+                        if play.score_play:
+                            EP_result = Globals.score_values[play.score_play][1] * (1 if play.score_play_is_off else -1)
                         else:
                             EP_result = game.playlist[p+1].raw_EP[1]
                         FG_data.append([play.YDLINE,

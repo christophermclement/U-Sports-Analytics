@@ -54,11 +54,14 @@ class EP():
                          [None, None, None]]
 
         self.BOOTSTRAP = Globals.DummyArray
-        self.EP_probs_list = []
-        self.EP_list = []
+        # TODO: These should probably be deleted once we show that they're no longer relevant
+        #self.EP_probs_list = []
+        #self.EP_list = []
 
         self.EP_regression_list = []
-        self.EP_classification_list = []
+        self.EP_classification_list = []  # These are the actual output probabilities for the classification models
+        self.EP_classification_values = []  # These are the probabilities converted to EP values. 
+        # TODO: Technically we don'the classification values since it can be derived from the list need this but it's a long one-liner.
 
     def binom(self):
         '''
@@ -67,7 +70,7 @@ class EP():
         '''
         if sum(self.Score_Counts.values()):
             for x in range(9):
-                self.P_Scores[x][1] = self.Score_Counts[x] / self.N
+                self.P_Scores[x][1] = self.Score_Counts[x] / sum(self.Score_Counts.values())
                 self.P_Scores[x][0] = Functions.BinomLow(self.Score_Counts[x], sum(self.Score_Counts.values()), Globals.CONFIDENCE)
                 self.P_Scores[x][2] = Functions.BinomHigh(self.Score_Counts[x], sum(self.Score_Counts.values()), Globals.CONFIDENCE)
         return None
@@ -111,8 +114,8 @@ EP_regression_models = []
 #EP_regression_models.append(sklearn.linear_model.LogisticRegression(solver='saga', max_iter=10000))
 EP_regression_models.append(sklearn.neighbors.KNeighborsRegressor())
 EP_regression_models.append(sklearn.ensemble.RandomForestRegressor(n_estimators=Globals.forest_trees, n_jobs=-1))
-EP_regression_models.append(sklearn.neural_network.MLPRegressor(max_iter=1000, hidden_layer_sizes=Globals.neural_network, warm_start=True))
-EP_regression_models.append(sklearn.ensemble.GradientBoostingRegressor(n_estimators=Globals.forest_trees, warm_start=True))
+#EP_regression_models.append(sklearn.neural_network.MLPRegressor(max_iter=1000, hidden_layer_sizes=Globals.neural_network, warm_start=True))
+#EP_regression_models.append(sklearn.ensemble.GradientBoostingRegressor(n_estimators=Globals.forest_trees, warm_start=True))
 
 
 
@@ -169,13 +172,22 @@ def EP_regression():
             if play.DOWN and play.DISTANCE < Globals.DISTANCE_LIMIT:
                 EP_ARRAY[play.DOWN][play.DISTANCE][play.YDLINE].EP_regression_list.append(play.EP_regression_list)
 
+    EP_data_x = []
+    outputlist = []
     for down in EP_ARRAY:
         for distance in down:
             for ydline in distance:
                 if ydline.EP_regression_list:
                     ydline.EP_regression_list = numpy.mean(numpy.array(ydline.EP_regression_list), axis = 0)
                 else:
-                    ydline.EP_regression_list = [model.predict_proba([[(ydline.DOWN), ydline.DISTANCE, ydline.YDLINE]]) for model in EP_regression_models]
+                    EP_data_x.append([ydline.DOWN, ydline.DISTANCE, ydline.YDLINE])
+    outputlist = [model.predict(EP_data_x) for model in EP_regression_models]
+    outputlist = [list(model).reverse for model in outputlist]
+    for down in EP_ARRAY:
+        for distance in down:
+            for ydline in distance:
+                if ydline.EP_regression_list is None:
+                    ydline.EP_regression_list = [model.pop() for model in outputlist]
     print("\tArray populated", Functions.timestamp())
 
     Functions.printFeatures(EP_regression_models)
@@ -197,7 +209,7 @@ def EP_classification():
 
     for game in Globals.gamelist:
         for play in game.playlist:
-            EP_data.append([play.DOWN, play.DISTANCE, play.YDLINE, [play.next_score, play.next_score_is_off]])
+            EP_data.append([play.DOWN, play.DISTANCE, play.YDLINE, play.next_score + str(play.next_score_is_off)])
     
     for model in EP_classification_models:
         if type(model).__name__ == "KNeighborsClassifier":
@@ -238,13 +250,23 @@ def EP_classification():
             if play.DOWN and play.DISTANCE < Globals.DISTANCE_LIMIT:
                 EP_ARRAY[play.DOWN][play.DISTANCE][play.YDLINE].EP_classification_list.append(play.EP_classification_list)
 
+    EP_data_x = []
+    outputlist = []
     for down in EP_ARRAY:
         for distance in down:
             for ydline in distance:
                 if ydline.EP_classification_list:
                     ydline.EP_classification_list = numpy.mean(numpy.array(ydline.EP_classification_list), axis = 0)
                 else:
-                    ydline.EP_classification_list = [model.predict_proba([[(ydline.DOWN), ydline.DISTANCE, ydline.YDLINE]]) for model in EP_classification_models]
+                    EP_data_x.append([ydline.DOWN, ydline.DISTANCE, ydline.YDLINE])
+    outputlist = [model.predict_proba(EP_data_x) for model in EP_classification_models]
+    outputlist = [list(model).reverse for model in outputlist]
+    for down in EP_ARRAY:
+        for distance in down:
+            for ydline in distance:
+                if ydline.EP_classification_list is None:
+                    ydline.EP_classification_list = [model.pop for model in outputlist]
+            ydline.EP_classification_values = [sum([prob * Globals.score_values[score[0]] * (1 if score[1] else -1) for prob, score in zip(model, Globals.alpha_scores)]) for model in ydline.EP_classification_list]
     print("\tArray populated", Functions.timestamp())
 
     Functions.printFeatures(EP_classification_models)
@@ -388,8 +410,8 @@ def EP_PLOTS():
                 heatmap_data.append(temp)
 
             plt.imshow(heatmap_data, origin='lower', aspect=2, cmap='rainbow',
-                       vmin=Globals.SCOREvals[3][1] * (-1),
-                       vmax=Globals.SCOREvals[3][1])
+                       vmin=Globals.score_values["TD"][1] * (-1),
+                       vmax=Globals.score_values["TD"][1])
             plt.title("EP for " + Functions.ordinals(down)
                       + " Down by Distance and Yardline,\n"
                       + type(model).__name__)
@@ -417,8 +439,8 @@ def EP_PLOTS():
             heatmap_data.append(temp)
 
         plt.imshow(heatmap_data, origin='lower', aspect=2, cmap='rainbow',
-                   vmin=Globals.SCOREvals[3][1] * (-1),
-                   vmax=Globals.SCOREvals[3][1])
+                   vmin=Globals.score_values["TD"][1] * (-1),
+                   vmax=Globals.score_values["TD"][1])
         plt.title("EP for " + Functions.ordinals(down)
                   + " Down by Distance and Yardline,\nRaw Data")
         plt.xlabel("Yardline")
