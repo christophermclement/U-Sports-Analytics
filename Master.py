@@ -46,32 +46,26 @@ def score_bootstrap():
     '''
     print("Bootstrapping scores", Functions.timestamp())
     # The value of a TD is the 6 nominal points, the probability of the 1-pt (until 2-pt becomes more popular we'll simplify) and the value of the resultant KO)
-    Globals.TDval_BOOTSTRAP = \
+    Globals.score_bootstraps["TD"] = \
         numpy.sort(6 
-                   + KOClass.KO_ARRAY[65].BOOTSTRAP 
-                   + numpy.random.binomial(sum(FGClass.FG_ARRAY[5].counts.values()), FGClass.FG_ARRAY[5].probabilities["GOOD"][1], Globals.BOOTSTRAP_SIZE))
-    print(FGClass.FG_ARRAY[5].EP)
-    print(KOClass.KO_ARRAY[65].EP)
-    Globals.ROUGEval_BOOTSTRAP = numpy.sort(1 - EPClass.EP_ARRAY[1][10][75].BOOTSTRAP)  # The adjustment for the rouge is purely based on the value of the resultant possession
+            + KOClass.KO_ARRAY[65].BOOTSTRAP 
+            + numpy.random.binomial(sum(FGClass.FG_ARRAY[5].counts.values()), FGClass.FG_ARRAY[5].probabilities["GOOD"][1], Globals.BOOTSTRAP_SIZE) / sum(FGClass.FG_ARRAY[5].counts.values()))
 
-    if EPClass.EP_ARRAY[1][10][75].EP[1] > (-1) * KOClass.KO_ARRAY[65].EP[1]:  # Value of a FG has to assume a rational decision between aking the ball or the KO
-        Globals.FGval_BOOTSTRAP = numpy.sort(3 - EPClass.EP_ARRAY[1][10][75].BOOTSTRAP)
+    Globals.score_bootstraps["ROUGE"] = numpy.sort(1 - EPClass.EP_ARRAY[1][10][75].BOOTSTRAP)  # The adjustment for the rouge is purely based on the value of the resultant possession
+
+    if EPClass.EP_ARRAY[1][10][75].EP[1] > (-1) * KOClass.KO_ARRAY[65].EP[1]:  # Value of a FG has to assume a rational decision between taking the ball or the KO
+        Globals.score_bootstraps["FG"] = numpy.sort(3 - EPClass.EP_ARRAY[1][10][75].BOOTSTRAP)
     else:
-        Globals.FGval_BOOTSTRAP = numpy.sort(3 + KOClass.KO_ARRAY[65].BOOTSTRAP)
+        Globals.score_bootstraps["FG"] = numpy.sort(3 + KOClass.KO_ARRAY[65].BOOTSTRAP)
 
     if EPClass.EP_ARRAY[1][10][75].EP[1] > (-1) * KOClass.KO_ARRAY[75].EP[1]:
-        Globals.SAFETYval_BOOTSTRAP = numpy.sort(-2 - EPClass.EP_ARRAY[1][10][75].BOOTSTRAP)
+        Globals.score_bootstraps["SAFETY"] = numpy.sort(-2 - EPClass.EP_ARRAY[1][10][75].BOOTSTRAP)
     else:
-        Globals.SAFETYval_BOOTSTRAP = numpy.sort(-2 + KOClass.KO_ARRAY[75].BOOTSTRAP)
+        Globals.score_bootstraps["SAFETY"] = numpy.sort(-2 + KOClass.KO_ARRAY[75].BOOTSTRAP)
 
-    Globals.score_values["TD"][2] = Globals.TDval_BOOTSTRAP[int(len(Globals.TDval_BOOTSTRAP) * (1 - Globals.CONFIDENCE))]
-    Globals.score_values["TD"][0] = Globals.TDval_BOOTSTRAP[int(len(Globals.TDval_BOOTSTRAP) * (Globals.CONFIDENCE) - 1)]
-    Globals.score_values["FG"][2] = Globals.FGval_BOOTSTRAP[int(len(Globals.FGval_BOOTSTRAP) * (1 - Globals.CONFIDENCE))]
-    Globals.score_values["FG"][0] = Globals.FGval_BOOTSTRAP[int(len(Globals.FGval_BOOTSTRAP) * (Globals.CONFIDENCE) - 1)]
-    Globals.score_values["ROUGE"][2] = Globals.ROUGEval_BOOTSTRAP[int(len(Globals.ROUGEval_BOOTSTRAP) * (1 - Globals.CONFIDENCE))]
-    Globals.score_values["ROUGE"][0] = Globals.ROUGEval_BOOTSTRAP[int(len(Globals.ROUGEval_BOOTSTRAP) * (Globals.CONFIDENCE) - 1)]
-    Globals.score_values["SAFETY"][2] = Globals.SAFETYval_BOOTSTRAP[int(len(Globals.SAFETYval_BOOTSTRAP) * (1 - Globals.CONFIDENCE))]
-    Globals.score_values["SAFETY"][0] = Globals.SAFETYval_BOOTSTRAP[int(len(Globals.SAFETYval_BOOTSTRAP) * (Globals.CONFIDENCE) - 1)]
+    for score in Globals.score_values:
+        Globals.score_values[score][2] = Globals.score_bootstraps[score][int(Globals.BOOTSTRAP_SIZE * (1 - Globals.CONFIDENCE))]
+        Globals.score_values[score][0] = Globals.score_bootstraps[score][int(Globals.BOOTSTRAP_SIZE * Globals.CONFIDENCE - 1)]
     for score in Globals.score_values:
         print(score, "\t", Globals.score_values[score])
     return None
@@ -125,6 +119,35 @@ def iterate_scores():
             > PRECISION else PRECISION
         print("% change: {0:4.2e}".format(PRECISION), Functions.timestamp())
         print([x[1] for x in Globals.score_values.values()], Functions.timestamp())
+    return None
+
+
+def pickle_gamelist():
+    gc.collect()
+    for g, game in enumerate(Globals.gamelist):  # Pickle all the games in their own directory
+        with open("Pickle/Games/" + g.zfill(4) + " " + game.game_statement, 'wb') as file:
+            pickle.dump(game, file)
+            print("pickled", g + 1, " of ", len(Globals.gamelist), "games", end='\r')
+    print()  # Just deals with the newline issue
+    return None
+
+
+def pickle_models(list, path):
+    gc.collect()
+    for model in list:
+        with open(path + type(model).__name__, 'wb') as file:
+            pickle.dump(model, file)
+    return None
+
+
+def unpickle_models(list, path):
+    gc.collect()
+    for model in list:
+        try:
+            with open(path + type(model).__name__, 'rb') as file:
+                model = pickle.load(file)
+        except Exception as err:
+            print("unable to unpickle", path + type(model).__name__)
     return None
 
 
@@ -188,11 +211,9 @@ def reparse():
         iterate_scores()
         print("Done iterating, pickling", Functions.timestamp())
         gc.collect()
-        for g, game in enumerate(Globals.gamelist):  # Pickle all the games in their own directory
-            with open("Pickle/Games/" + game.game_statement, 'wb') as file:
-                pickle.dump(game, file)
-                print("pickled", g, " of ", len(Globals.gamelist), "games", end='\r')
-        print()  # Just deals with the newline issue
+        
+        pickle_gamelist()
+
         with open("Pickle/score_values", 'wb') as file:
             pickle.dump(Globals.score_values, file)
         with open("Pickle/P1D_ARRAY", 'wb') as file:
@@ -215,7 +236,6 @@ def reparse():
                 Globals.gamelist.append(pickle.load(game))
                 print("unpickled", f, " of ", len(os.listdir("Pickle/Games")), "games", end='\r')
         print()
-        random.shuffle(Globals.gamelist)
         with open("Pickle/P1D_ARRAY", 'rb') as file:
             P1DClass.P1D_ARRAY = pickle.load(file)
         with open("Pickle/P1D_GOAL_ARRAY", 'rb') as file:
@@ -239,19 +259,8 @@ def recalc_ep():
         '''
         Bringing in these pickles and then retraining lets us jump to the warm start part of the game
         '''
-        for model in EPClass.EP_classification_models:
-            try:
-                with open("Pickle/EP Models/" + type(model).__name__, 'rb') as file:
-                    model = pickle.load(file)
-            except Exception:  # Basically, don't sweat it if you don't find one.
-                pass
-
-        for model in EPClass.EP_regression_models:
-            try:
-                with open("Pickle/EP Models/" + type(model).__name__, 'rb') as file:
-                    model = pickle.load(file)
-            except Exception:  # Basically, don't sweat it if you don't find one.
-                pass
+        unpickle_models(EPClass.EP_classification_models, "Pickle/EP Models/")
+        unpickle_models(EPClass.EP_regression_models, "Pickle/EP Models/")
 
         EPClass.BOOTSTRAP()
         PuntClass.P_EP()
@@ -270,21 +279,14 @@ def recalc_ep():
         with open("Pickle/EPARRAY", 'wb') as file:
             pickle.dump(EPClass.EP_ARRAY, file)
 
-        for model in EPClass.EP_classification_models:  # Need to pickle models individually bc it can't pickle >4GB
-            with open("Pickle/EP Models/" + type(model).__name__, 'wb') as file:
-                pickle.dump(model, file)
-        for model in EPClass.EP_regression_models:  # Need to pickle models individually bc it can't pickle >4GB
-            with open("Pickle/EP Models/" + type(model).__name__, 'wb') as file:
-                pickle.dump(model, file)
-
-        for g, game in enumerate(Globals.gamelist):  # Pickle all the games in their own directory
-            with open("Pickle/Games/" + game.game_statement, 'wb') as file:
-                pickle.dump(game, file)
-                print("pickled", g, " of ", len(Globals.gamelist), "games", end='\r')
-        print()  # Just deals with the newline issue
+        pickle_models(EPClass.EP_classification_models, "Pickle/EP Models/")
+        pickle_models(EPClass.EP_regression_models, "Pickle/EP Models/")
+        pickle_gamelist()
 
         with open("Pickle/score_values", 'wb') as file:
             pickle.dump(Globals.score_values, file)
+        with open("Pickle/score_bootstraps", "wb") as file:
+            pickle.dump(Globals.score_bootstraps, file)
         with open("Pickle/PUNT_ARRAY", 'wb') as file:
             pickle.dump(PuntClass.PUNT_ARRAY, file)
         with open("Pickle/FG_ARRAY", 'wb') as file:
@@ -297,12 +299,9 @@ def recalc_ep():
         print("Reusing pickled EP", Functions.timestamp())
         with open("Pickle/EPARRAY", 'rb') as file:
             EPClass.EP_ARRAY = pickle.load(file)
-        for model in EPClass.EP_regression_models:
-            with open("Pickle/EP models/" + type(model).__name__, 'rb') as file:
-                model = pickle.load(file)
-        for model in EPClass.EP_classification_models:
-            with open("Pickle/EP models/" + type(model).__name__, 'rb') as file:
-                model = pickle.load(file)
+
+        unpickle_models(EPClass.EP_regression_models, "Pickle/EP Models/")
+        unpickle_models(EPClass.EP_classification_models, "Pickle/EP Models/")
 
         with open("Pickle/FG_ARRAY", 'rb') as file:
             FGClass.FG_ARRAY = pickle.load(file)
@@ -318,30 +317,14 @@ def recalc_ep():
 def recalc_wp():
     gc.collect()
     if RECALCULATE_WP:
-        for model in WP.WP_models:  # Speeds up the learning by giving a warm start
-            try:  # If it doesn't work no biggie'
-                with open("Pickle/WPMODELS" + type(model).__name__, 'rb') as file:
-                    model = pickle.load(file)
-                    print(type(model).__name__, "loaded")
-            except Exception:
-                pass
+        unpickle_models(WP.WP_models, "Pickle/WP Models/")
         WP.WP_Models()
-        print("    pickling", Functions.timestamp())
+        print("\tpickling", Functions.timestamp())
         gc.collect()
-        for model in WP.WP_models:  # Need to pickle models individually bc it can't pickle >4GB
-            with open("Pickle/WPMODELS" + type(model).__name__, 'wb') as file:
-                pickle.dump(model, file)
-        for g, game in enumerate(Globals.gamelist):  # Pickle all the games in their own directory
-            with open("Pickle/Games/" + game.game_statement, 'wb') as file:
-                pickle.dump(game, file)
-                print("pickled", g, " of ", len(Globals.gamelist), "games", end='\r')
-
+        pickle_models(WP.WP_models, "Pickle/WP Models/")
+        pickle_gamelist()
     else:
-        gc.collect()
-        print("reusing pickled WP", Functions.timestamp())
-        for model in WP.WP_models:
-            with open("Pickle/WPMODELS" + type(model).__name__, 'rb') as file:
-                model = pickle.load(file)
+        unpickle_models(WP.WP_models, "Pickle/WP Models/") 
     return None
 
 
@@ -351,20 +334,13 @@ def recalc_fg():
         FGClass.FG_classification()
         FGClass.FG_regression()
         print("Pickling FG models")
-        for model in FGClass.FG_regression_models:
-            with open("Pickle/FG Models/" + type(model).__name__, 'wb') as file:
-                pickle.dump(model, file)
-        for model in FGClass.FG_classification_models:
-            with open("Pickle/FG Models/" + type(model).__name__, 'wb') as file:
-                pickle.dump(model, file)
-        for g, game in enumerate(Globals.gamelist):  # Pickle all the games in their own directory
-            with open("Pickle/Games/" + game.game_statement, 'wb') as file:
-                pickle.dump(game, file)
-                print("pickled", g, " of ", len(Globals.gamelist), "games", end='\r')
+        pickle_models(FGClass.FG_regression_models, "Pickle/FG Models/")
+        pickle_models(FGClass.FG_classification_models, "Pickle/FG Models/")
+        pickle_gamelist()
     else:
         print("reusing pickled FG", Functions.timestamp())
-        with open("Pickle/FGMODELS", 'rb') as file:
-            FGClass.FG_models = pickle.load(file)
+        unpickle_models(FGClass.FG_regression_models, "Pickle/FG Models/")
+        unpickle_models(FGClass.FG_classification_models, "Pickle/FG Models/")
     return None
 
 
@@ -386,9 +362,9 @@ def redraw_plots():
 
 
 
-REPARSE_DATA = False
-RECALCULATE_EP = False
-RECALCULATE_WP = False
+REPARSE_DATA = True
+RECALCULATE_EP = True
+RECALCULATE_WP = True
 RECALCULATE_FG = True
 DRAW_PLOTS = True
 

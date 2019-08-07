@@ -119,25 +119,24 @@ def BootCompare(arrA, arrB):
     return numpy.float(count)
 
 
-
-def fit_functions(model, x, a=0, b=0, c=0, d=0, e=0):
-    '''
-    Put in a keyword and it give us back the function to go with, but this is a lot cleaner than using a zillion one-liners, now we just reference a dict
-    TODO: TBH we could probably just reference the dict directly
-    '''
-    functions_dict = {"linearFit": a * x + b,
-                      "exponentialDecayFit": a * numpy.exp(x * b) + c,
-                      "logarithmicFit": a * numpy.log(x + b) + c,
-                      "quadraticFit": a * x ** 2 + b * x + c,
-                      "reverseQuadraticFit": a * (x + b) ** 0.5 + c,
-                      "sigmoidFit": a / (b + numpy.exp(- c * x)),
-                      "inverseSigmoidFit": numpy.log(a / x + b) + c,
-                      "tangentFit": a * numpy.tan(b + x) + c,
-                      "cubicFit": a * x ** 3 + b * x ** 2 + c * x + d}
-
-    return(models_dict[model])
-
-
+def linearFit(x, a, b):
+    return a * x + b
+def exponentialDecayFit(x, a, b, c):
+    return a * numpy.exp(x * b) + c
+def logarithmicFit(x, a, b, c):
+    return a * numpy.log(x + b) + c
+def quadraticFit(x, a, b, c):
+    return a * x ** 2 + b * x + c
+def reverseQuadraticFit(x, a, b, c):
+   return a * (x + b) ** 0.5 + c
+def sigmoidFit(x, a, b, c):
+   return a / (b + numpy.exp(- c * x))
+def inverseSigmoidFit(x, a, b, c):
+   return numpy.log(a / x + b) + c
+def tangentFit(x, a, b, c):
+   return a * numpy.tan(b + x) + c
+def cubicFit(x, a, b, c, d):
+   return a * x ** 3 + b * x ** 2 + c * x + d
 
 
 def RMSE(func, params, xdata, ydata):
@@ -221,6 +220,7 @@ def imscatter(x, y, image, ax=None, zoom=1):
     ax.update_datalim(numpy.column_stack([x, y]))
     ax.autoscale()
     return artists
+
 
 def printFeatures(modellist):
     for model in modellist:

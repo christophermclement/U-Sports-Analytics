@@ -101,14 +101,15 @@ def WP_Models():
     
         # We're stripping the model to only P(Win) and ditching P(lose) because it's redundant, and reversing the order so we can later assign it to plays'
     for model in outputlist:
-        model = [play[1] for play in model]
+        model = list([play[1] for play in model])
+        print(model)
         model.reverse()
     
         # Here we assign each play's predicted WP back into the play's attributes. It's annoying that there's no standard feature to pop from the 
         # beginning of a list, but this was easier than importing yet another library.
     for game in Globals.gamelist:
         for play in game.playlist:
-            play.WP_list = [x.pop() for x in outputlist]
+            play.WP_list = [x.pop()[1] for x in outputlist]
 
     Functions.printFeatures(WP_models)  # Just prints out coefficients and such
 
@@ -147,12 +148,11 @@ def WP_correlation():
         error = [[(x[1]/x[0] - Functions.BinomLow(x[1], x[0], Globals.CONFIDENCE)) * 100 for x in model],
                  [(Functions.BinomHigh(x[1], x[0], Globals.CONFIDENCE) - x[1]/x[0]) * 100 for x in model]]
         
-        rmse = Functions.RMSE(Functions.linearFit, [1, 0], xdata, ydata)
-        r2 = Functions.RSquared(Functions.linearFit, [1, 0], xdata, ydata)
+        rmse = Functions.RMSE(Functions.linearFit, (1, 0), xdata, ydata)
+        r2 = Functions.RSquared(Functions.linearFit, (1, 0), xdata, ydata)
         
         plt.plot(xdata, Functions.linearFit(xdata, 1, 0), color='black',
-                 label="RMSE={0:5.4g}, R^2={1:5.4g}".format(
-                 rmse, r2,))
+                 label="RMSE={0:5.4g}, R^2={1:5.4g}".format(rmse, r2,))
         plt.errorbar(xdata, ydata, yerr=error)
         plt.legend()
         plt.title("Correlation Graph for Win Probability,\n" + type(WP_models[m]).__name__)
@@ -169,14 +169,14 @@ def WP_correlation():
     axs= [[], [], [], [], []]
     fig, ([axs[1], axs[2]], [axs[3], axs[4]]) = plt.subplots(2, 2, sharex=True, sharey=True)
     for quarter in range(1, 5):
-        corr_graph = [[[0, 0] for x in range(101)] for model in WP_models]
+        corr_graph = [[[[0, 0] for x in range(101)] for model in WP_models] for quarter in range(5)]
 
         for game in Globals.gamelist:
             for play in game.playlist:
-                if play.DISTANCE and play.DOWN > 0 and play.QUARTER == quarter:
+                if play.DISTANCE and play.DOWN > 0:
                     for m, model in enumerate(corr_graph):
-                        model[int(round(play.WP_list[m] * 100))][0] += 1
-                        model[int(round(play.WP_list[m] * 100))][1] += play.O_WIN
+                        model[play.QUARTER][int(round(play.WP_list[m] * 100))][0] += 1
+                        model[play.QUARTER][int(round(play.WP_list[m] * 100))][1] += play.O_WIN
 
         for m, model in enumerate(corr_graph):
             xdata = numpy.arange(101)

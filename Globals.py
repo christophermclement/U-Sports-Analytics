@@ -101,6 +101,12 @@ score_values = {"FG": numpy.array([None, 3.0, None], dtype=numpy.dtype('Float64'
                 "TD": numpy.array([None, 7.0, None], dtype=numpy.dtype('Float64')),
                 "HALF": numpy.array([None, 0.0, None], dtype=numpy.dtype('Float64'))}
 
+score_bootstraps = {"FG": numpy.empty(BOOTSTRAP_SIZE, dtype=numpy.dtype('Float64')),
+                    "ROUGE": numpy.empty(BOOTSTRAP_SIZE, dtype=numpy.dtype('Float64')),
+                    "SAFETY": numpy.empty(BOOTSTRAP_SIZE, dtype=numpy.dtype('Float64')),
+                    "TD": numpy.empty(BOOTSTRAP_SIZE, dtype=numpy.dtype('Float64')),
+                    "HALF": numpy.empty(BOOTSTRAP_SIZE, dtype=numpy.dtype('Float64'))}
+
 
 gamelist = []  # The gamelist holds all the games
 
