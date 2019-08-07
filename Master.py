@@ -125,7 +125,7 @@ def iterate_scores():
 def pickle_gamelist():
     gc.collect()
     for g, game in enumerate(Globals.gamelist):  # Pickle all the games in their own directory
-        with open("Pickle/Games/" + g.zfill(4) + " " + game.game_statement, 'wb') as file:
+        with open("Pickle/Games/" + str(g).zfill(4) + " " + game.game_statement, 'wb') as file:
             pickle.dump(game, file)
             print("pickled", g + 1, " of ", len(Globals.gamelist), "games", end='\r')
     print()  # Just deals with the newline issue
@@ -234,7 +234,7 @@ def reparse():
         for f, file in enumerate(os.listdir("Pickle/Games")):
             with open("Pickle/Games/" + file, 'rb') as game:
                 Globals.gamelist.append(pickle.load(game))
-                print("unpickled", f, " of ", len(os.listdir("Pickle/Games")), "games", end='\r')
+                print("unpickled", f + 1, " of ", len(os.listdir("Pickle/Games")), "games", end='\r')
         print()
         with open("Pickle/P1D_ARRAY", 'rb') as file:
             P1DClass.P1D_ARRAY = pickle.load(file)

@@ -118,7 +118,7 @@ def WP_Models():
     # in the play object, if not then as a function of the game object
     for game in Globals.gamelist:
         game.WPA_FN()
-    return None  # Just b/c Visual Studio uses return statements to let me collaps sections of code
+    return None 
 
 
 def WP_correlation():
@@ -174,7 +174,7 @@ def WP_correlation():
         for game in Globals.gamelist:
             for play in game.playlist:
                 if play.DISTANCE and play.DOWN > 0:
-                    for m, model in enumerate(corr_graph):
+                    for m, model in enumerate(WP_models):
                         model[play.QUARTER][int(round(play.WP_list[m] * 100))][0] += 1
                         model[play.QUARTER][int(round(play.WP_list[m] * 100))][1] += play.O_WIN
 
