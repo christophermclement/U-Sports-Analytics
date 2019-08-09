@@ -29,8 +29,8 @@ WP_models = []
 WP_models.append(sklearn.linear_model.LogisticRegression(solver="liblinear"))
 WP_models.append(sklearn.neighbors.KNeighborsClassifier())
 #WP_models.append(sklearn.ensemble.RandomForestClassifier(n_estimators=Globals.forest_trees, n_jobs=-1))  # TODO: Find a way to pickle this
-WP_models.append(sklearn.neural_network.MLPClassifier(max_iter=1000, hidden_layer_sizes=Globals.neural_network, warm_start=True))
-WP_models.append(sklearn.ensemble.GradientBoostingClassifier(n_estimators=Globals.forest_trees, warm_start=True))
+#WP_models.append(sklearn.neural_network.MLPClassifier(max_iter=1000, hidden_layer_sizes=Globals.neural_network, warm_start=True))
+#WP_models.append(sklearn.ensemble.GradientBoostingClassifier(n_estimators=Globals.forest_trees, warm_start=True))
 
 
 def WP_Models():
@@ -85,31 +85,28 @@ def WP_Models():
     reassign it to the plays in the database. This way we predict each play based on the model from its fold.
     Mathematically it's really elegant but the code is ugly.
     '''
-    outputlist = [[] for x in WP_models]
+    outputlist = numpy.empty((len(WP_models), 0, 2))
     kf = KFold(n_splits=Globals.KFolds)
     kf.get_n_splits(WP_data_x)
     for train_index, test_index in kf.split(WP_data_x):
+        temp = []
         for m, model in enumerate(WP_models):
             model.fit(WP_data_x.iloc[train_index], WP_data_y.iloc[train_index].values.ravel())
-            outputlist[m].extend(model.predict_proba(WP_data_x.iloc[test_index]))
+            temp.append(model.predict_proba(WP_data_x.iloc[test_index]))
             print("\t", type(model).__name__, "fitted", Functions.timestamp())
+        outputlist = numpy.concatenate((outputlist, temp), axis = 1)
     print("\tmodels fitted", Functions.timestamp())
-    
+    print([model[:25] for model in outputlist])  # prints outputlist so we can see if it's a list or what, and then compare to what it looks like after cleanup
     # Here we're refitting the models on all the data so we can use it for future prediction'
     for model in WP_models:
         model.fit(WP_data_x, WP_data_y.values.ravel())
     
-        # We're stripping the model to only P(Win) and ditching P(lose) because it's redundant, and reversing the order so we can later assign it to plays'
-    for model in outputlist:
-        model = list([play[1] for play in model])
-        print(model)
-        model.reverse()
-    
-        # Here we assign each play's predicted WP back into the play's attributes. It's annoying that there's no standard feature to pop from the 
-        # beginning of a list, but this was easier than importing yet another library.
+    #Manipulating outputlist to get just P(win) and flip the order so we can pop from the end of the list
+    outputlist = numpy.flip(numpy.take(outputlist, 1, axis=2), axis=1)
+    outputlist = outputlist.tolist()
     for game in Globals.gamelist:
         for play in game.playlist:
-            play.WP_list = [x.pop()[1] for x in outputlist]
+            play.WP_list = [x.pop() for x in outputlist]
 
     Functions.printFeatures(WP_models)  # Just prints out coefficients and such
 
@@ -168,15 +165,13 @@ def WP_correlation():
     '''
     axs= [[], [], [], [], []]
     fig, ([axs[1], axs[2]], [axs[3], axs[4]]) = plt.subplots(2, 2, sharex=True, sharey=True)
-    for quarter in range(1, 5):
-        corr_graph = [[[[0, 0] for x in range(101)] for model in WP_models] for quarter in range(5)]
 
-        for game in Globals.gamelist:
-            for play in game.playlist:
-                if play.DISTANCE and play.DOWN > 0:
-                    for m, model in enumerate(WP_models):
-                        model[play.QUARTER][int(round(play.WP_list[m] * 100))][0] += 1
-                        model[play.QUARTER][int(round(play.WP_list[m] * 100))][1] += play.O_WIN
+    corr_graph = [[[[0, 0] for wp in range(101)] for model in WP_models] for quarter in range(5)]
+    for game in Globals.gamelist:
+        for play in game.playlist:
+            for m, model in enumerate(play.WP_list):
+                corr_graph[play.QUARTER][m][int(round(play.WP_list[m] * 100))][0] += 1
+                corr_graph[play.QUARTER][m][int(round(play.WP_list[m] * 100))][1] += play.O_WIN
 
         for m, model in enumerate(corr_graph):
             xdata = numpy.arange(101)

@@ -101,7 +101,7 @@ class EP():
             self.EP[1] = sum([(self.Score_Counts[score] * Globals.score_values[score[0]][1] * (1 if score[1] else -1)) for score in self.Score_Counts]) / sum(self.Score_Counts.values())
         return None
 
-EP_ARRAY = [[[EP(down, distance, yardline) for yardline in range(110)] for distance in range(Globals.DISTANCE_LIMIT)] for down in range(4)]
+EP_ARRAY = [[[EP(down, distance, yardline) for yardline in range(110)] for distance in range(110)] for down in range(4)]
 
 EP_classification_models = []
 #EP_classification_models.append(sklearn.linear_model.LogisticRegression(multi_class='multinomial', solver='saga', max_iter=10000))
@@ -169,8 +169,7 @@ def EP_regression():
 
     for game in Globals.gamelist:
         for play in game.playlist:
-            if play.DOWN and play.DISTANCE < Globals.DISTANCE_LIMIT:
-                EP_ARRAY[play.DOWN][play.DISTANCE][play.YDLINE].EP_regression_list.append(play.EP_regression_list)
+            EP_ARRAY[play.DOWN][play.DISTANCE][play.YDLINE].EP_regression_list.append(play.EP_regression_list)
 
     EP_data_x = []
     outputlist = []
@@ -181,6 +180,8 @@ def EP_regression():
                     ydline.EP_regression_list = numpy.mean(numpy.array(ydline.EP_regression_list), axis = 0)
                 else:
                     EP_data_x.append([ydline.DOWN, ydline.DISTANCE, ydline.YDLINE])
+    '''
+    # TODO: Delete this and the else above if there are no errors
     outputlist = [model.predict(EP_data_x) for model in EP_regression_models]
     outputlist = [list(model).reverse for model in outputlist]
     for down in EP_ARRAY:
@@ -188,6 +189,7 @@ def EP_regression():
             for ydline in distance:
                 if ydline.EP_regression_list is None:
                     ydline.EP_regression_list = [model.pop() for model in outputlist]
+    '''
     print("\tArray populated", Functions.timestamp())
 
     Functions.printFeatures(EP_regression_models)
@@ -247,8 +249,7 @@ def EP_classification():
     # Assigning values by averaging all instances
     for game in Globals.gamelist:
         for play in game.playlist:
-            if play.DOWN and play.DISTANCE < Globals.DISTANCE_LIMIT:
-                EP_ARRAY[play.DOWN][play.DISTANCE][play.YDLINE].EP_classification_list.append(play.EP_classification_list)
+            EP_ARRAY[play.DOWN][play.DISTANCE][play.YDLINE].EP_classification_list.append(play.EP_classification_list)
 
     EP_data_x = []
     outputlist = []
@@ -286,6 +287,7 @@ def EP_COUNT():
     except Exception as err:
         print("EP COUNT ERROR", play.MULE, play.next_score, play.next_score_is_off, play.playdesc)
         print(err)
+    return None
         
 
 def EP_calculate():
@@ -296,6 +298,7 @@ def EP_calculate():
         for distance in down:
             for YDLINE in distance:
                 YDLINE.calculate()
+    return None
 
 
 def BOOTSTRAP():
@@ -307,6 +310,7 @@ def BOOTSTRAP():
         for distance in down:
             for YDLINE in distance:
                 YDLINE.boot()
+    return None
 
 
 def EP_PLOTS():

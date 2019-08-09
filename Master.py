@@ -362,17 +362,17 @@ def redraw_plots():
 
 
 
-REPARSE_DATA = True
+REPARSE_DATA = False
 RECALCULATE_EP = True
-RECALCULATE_WP = True
+RECALCULATE_WP = False
 RECALCULATE_FG = True
 DRAW_PLOTS = True
 
 
 reparse()
-recalc_ep()
+#recalc_ep()
 recalc_wp()
-recalc_fg()
+#recalc_fg()
 redraw_plots()
 
 
