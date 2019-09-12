@@ -84,6 +84,7 @@ class play():
         self.raw_EP = None
         self.EP_regression_list = []
         self.EP_classification_list = []
+        self.EP_classification_values = []
 
         self.raw_EPA = None
         self.EPA_regression_list = []

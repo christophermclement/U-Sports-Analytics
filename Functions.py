@@ -11,6 +11,7 @@ import Globals
 import datetime
 import math
 import matplotlib.pyplot as plt
+from sklearn.model_selection import KFold
 from matplotlib.offsetbox import OffsetImage, AnnotationBbox
 
 start = datetime.datetime.now().timestamp()
@@ -89,23 +90,15 @@ def BinomHigh(X, N, C):
     return V
 
 
-def bootstrap(values, C):
+def bootstrap(input_list):
     '''
     This creates a bootstrap array, where it creates bootstrap samples. We no longer need this function, we made numpy do it
     '''
-    straplist = numpy.empty(Globals.BOOTSTRAP_SIZE)
-    for y in range(Globals.BOOTSTRAP_SIZE):
-        Tot = 0
-        for x in range(len(values)):
-            Tot = Tot + random.choice(values)
-        straplist[y] = (Tot / len(values))
-    straplist.sort()
-    straplist = numpy.array(straplist, float)
-    CLow = straplist[int(C * Globals.BOOTSTRAP_SIZE - 1)]
-    CHigh = straplist[(1 - C) * Globals.BOOTSTRAP_SIZE]
-    return [CLow, CHigh, straplist]
- 
 
+    return numpy.sort(numpy.average(numpy.random.choice(
+        input_list, (Globals.BOOTSTRAP_SIZE, len(input_list)), replace=True), axis=1))
+
+ 
 def BootCompare(arrA, arrB):
     count = b = 0
     for a in range(Globals.BOOTSTRAP_SIZE):
@@ -180,26 +173,6 @@ def ordinals(num):
     return "ordinals error, wtf?"
 
 
-labels_dict = {"linearFit": r"$y={0:5.4f}*x+{1:5.4f}$" + "\n" + "$R^2={2:5.4f}, RMSE={3:5.4f}$",
-               "quadraticFit": r"$y={0:5.4f}*x^2+{1:5.4f}*x+{2:5.4f}$" + "\n" + r"$R^2={3:5.4f}, RMSE={4:5.4f}$",
-               "exponentialDecayFit": r"$y={0:5.4f}*e^({1:5.4f}*x)+{2:5.4f}$" + "\n" + r"$R^2={3:5.4f}$, $RMSE={4:5.4f}$",
-               "logarithmicFit": r"$y={0:5.4f}*ln({1:5.4f}+x)+{2:5.4f}$" + "\n" + "$R^2={3:5.4f}, RMSE={4:5.4f}$",
-               "reverseQuadraticFit": r"$y={0:5.4f}*(x+{1:5.4f}^(0.5)+{2:5.4f}$" + "\n" + "$R^2={3:5.4f}, RMSE={4:5.4f}$",
-               "sigmoidFit": r"$y={0:5.4f}/({1:5.4f} + e^(-{2:5.4f}*x))$" + "\n" + "$R^2={3:5.4f}, RMSE={4:5.4f}$",
-               "tangentFit": r"$y={0:5.4f}*tan({1:5.4f}+x)+{2:5.4f}$" + "\n" + "$R^2={3:5.4f}, RMSE={4:5.4f}$",
-               "inverseSigmoidFit": r"$y=ln({0:5.4f}/x+{1:5.4f})+{2:5.4f}$" + "\n" + "$R^2={3:5.4f}, RMSE={4:5.4f}$",
-               "cubicFit": r"$y={0:5.4f}*x^3+{1:5.4f}*x^2+{2:5.4f}*x+{3:5.4f}$" + "\n" + "$R^2={4:5.4f}, RMSE={5:5.4f}$"}
-
-
-def fitLabels(func):
-    '''
-    Returns a formatted string to give the label of a function from those used above, with R2 and RMSE.
-    References a dict to be much easier to look up
-    TODO: TBH we could probably just call the dict directly
-    '''
-    return labels_dict[func]
-
-
 def imscatter(x, y, image, ax=None, zoom=1):
     '''
     Use this to create a graph with logos on it based on images
@@ -233,4 +206,122 @@ def printFeatures(modellist):
         if hasattr(model, "feature_importances_"):
             print(type(model).__name__, "feature_importances")
             print(model.feature_importances_)            
+    return None
+
+
+def fitLabels(func):
+    '''
+    Returns a formatted string to give the label of a function from those used above, with R2 and RMSE
+    '''
+    if func == linearFit:
+        return r"$y={0:5.4f}*x+{1:5.4f}$" + "\n" + "$R^2={2:5.4f}, RMSE={3:5.4f}$"
+    elif func == quadraticFit:
+        return r"$y={0:5.4f}*x^2+{1:5.4f}*x+{2:5.4f}$" + "\n" + r"$R^2={3:5.4f}, RMSE={4:5.4f}$"
+    elif func == exponentialDecayFit:
+        return r"$y={0:5.4f}*e^({1:5.4f}*x)+{2:5.4f}$" + "\n" + r"$R^2={3:5.4f}$, $RMSE={4:5.4f}$"
+    elif func == logarithmicFit:
+        return r"$y={0:5.4f}*ln({1:5.4f}+x)+{2:5.4f}$" + "\n" + "$R^2={3:5.4f}, RMSE={4:5.4f}$"
+    elif func == reverseQuadraticFit:
+        return r"$y={0:5.4f}*(x+{1:5.4f}^(0.5)+{2:5.4f}$" + "\n" + "$R^2={3:5.4f}, RMSE={4:5.4f}$"
+    elif func == sigmoidFit:
+        return r"$y={0:5.4f}/({1:5.4f} + e^(-{2:5.4f}*x))$" + "\n" + "$R^2={3:5.4f}, RMSE={4:5.4f}$"
+    elif func == tangentFit:
+        return r"$y={0:5.4f}*tan({1:5.4f}+x)+{2:5.4f}$" + "\n" + "$R^2={3:5.4f}, RMSE={4:5.4f}$"
+    elif func == inverseSigmoidFit:
+        return r"$y=ln({0:5.4f}/x+{1:5.4f})+{2:5.4f}$" + "\n" + "$R^2={3:5.4f}, RMSE={4:5.4f}$"
+    elif func == cubicFit:
+        return r"$y={0:5.4f}*x^3+{1:5.4f}*x^2+{2:5.4f}*x+{3:5.4f}$" + "\n" + "$R^2={4:5.4f}, RMSE={5:5.4f}$"
+    return "fitLabels error" # Catchall escape
+
+
+def fit_models(model_list, xdata, ydata, returns):
+    if returns > 1:
+        outputlist = numpy.empty((len(model_list), 0, returns))
+    else:
+        outputlist = numpy.empty((len(model_list), 0))
+    kf = KFold(n_splits=Globals.KFolds)
+    kf.get_n_splits(xdata)
+    for train_index, test_index in kf.split(xdata):
+        temp = []
+        for m, model in enumerate(model_list):
+            model.fit(xdata.iloc[train_index], ydata.iloc[train_index].values.ravel())
+            if hasattr(model, "predict_proba"):
+                temp.append(model.predict_proba(xdata.iloc[test_index]))
+            else:
+                temp.append(model.predict(xdata.iloc[test_index]))
+            print("\t", type(model).__name__, "fitted", timestamp())
+        temp = numpy.array(temp)
+
+        outputlist = numpy.concatenate((outputlist, temp), axis=1)
+    print("    KFolds fitted", timestamp())
+
+    for model in model_list:
+        model.fit(xdata, ydata.values.ravel())
+        print("\t", type(model).__name__, "fitted", timestamp())
+    print("    Full models fitted", timestamp())
+    return outputlist
+
+
+def correlation_graph(input_data, ax):
+    
+    corr_data = [[] for x in range(101)]
+    for datum in input_data:
+        corr_data[int(round(datum[0] * 100))].append(datum[1])
+    xdata = []
+    err = []
+    ydata = []
+    for d, datum in enumerate(corr_data):
+        if len(datum) > Globals.THRESHOLD:
+            ydata.append(numpy.mean(datum) * 100)
+            err.append([(ydata[-1] - BinomLow(sum(datum), len(datum), Globals.CONFIDENCE)) * 100,
+                        (BinomHigh(sum(datum), len(datum), Globals.CONFIDENCE) - ydata[-1]) * 100])
+            xdata.append(d)
+    err = numpy.transpose(err)
+    xdata = numpy.array(xdata)
+    ydata = numpy.array(ydata)
+    rmse = RMSE(linearFit, [1, 0], xdata, ydata)
+    r2 = RSquared(linearFit, [1, 0], xdata, ydata)    
+    
+    ax.errorbar(xdata, ydata, yerr=err)
+    ax.plot(numpy.arange(101), linearFit(numpy.arange(101), 1, 0), color='black', label=r"$R^2={0:5.4f}, RMSE={1:5.4f}$".format(r2, rmse))
+    ax.grid()
+    ax.legend()
+    ax.set(aspect='equal')
+    ax.axis([0, 100, 0, 100])
+    ax.set_xlabel("Predicted")
+    ax.set_ylabel("Actual")
+    ax.label_outer()
+    return None
+            
+
+def correlation_values_graph(input_data, ax):
+    
+    corr_data = [[] for x in range(201)]
+    for datum in input_data:
+       corr_data[int(round(datum[0] * 10)) + 100].append(datum[1])
+    xdata = []
+    err = []
+    ydata = []
+    for d, datum in enumerate(corr_data):
+        if len(datum) > Globals.THRESHOLD:
+            ydata.append(numpy.mean(datum))
+            boot=bootstrap(datum)
+            err.append([ydata[-1] - boot[int(Globals.BOOTSTRAP_SIZE * Globals.CONFIDENCE - 1)],
+                        boot[int(Globals.BOOTSTRAP_SIZE * (1 - Globals.CONFIDENCE))] - ydata[-1]])
+            xdata.append((d - 100) / 10)
+    err = numpy.transpose(err)
+    xdata = numpy.array(xdata)
+    ydata = numpy.array(ydata)
+    rmse = RMSE(linearFit, [1, 0], xdata, ydata)
+    r2 = RSquared(linearFit, [1, 0], xdata, ydata)    
+    
+    ax.errorbar(xdata, ydata, yerr=err)
+    ax.plot(numpy.arange(-7, 7), linearFit(numpy.arange(-7, 7), 1, 0), color='black', label=r"$R^2={0:5.4f}, RMSE={1:5.4f}$".format(r2, rmse))
+    ax.grid()
+    ax.legend()
+    ax.set(aspect='equal')
+    ax.axis([-7, 7, -7, 7])
+    ax.set_xlabel("Predicted")
+    ax.set_ylabel("Actual")
+    ax.label_outer()
     return None

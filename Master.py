@@ -193,7 +193,7 @@ def parser():
                 play.KOSpread_FN()  # Dependent on ODK, KOGross, KONet
                 play.puntGross_FN()  # Dependent on ODK
                 play.puntSpread_FN()  # Dependent on ODK, puntNet, puntGross
-    return None
+    return None 
 
 
 def reparse():
@@ -259,8 +259,8 @@ def recalc_ep():
         '''
         Bringing in these pickles and then retraining lets us jump to the warm start part of the game
         '''
-        unpickle_models(EPClass.EP_classification_models, "Pickle/EP Models/")
-        unpickle_models(EPClass.EP_regression_models, "Pickle/EP Models/")
+        #unpickle_models(EPClass.EP_classification_models, "Pickle/EP Models/")
+        #unpickle_models(EPClass.EP_regression_models, "Pickle/EP Models/")
 
         EPClass.BOOTSTRAP()
         PuntClass.P_EP()
@@ -269,8 +269,9 @@ def recalc_ep():
         FGClass.FG_boot()
         score_bootstrap()
         
-        EPClass.EP_regression()
         EPClass.EP_classification()
+        EPClass.EP_regression()
+        
 
         for game in Globals.gamelist:
             game.EPA_FN()
@@ -317,14 +318,13 @@ def recalc_ep():
 def recalc_wp():
     gc.collect()
     if RECALCULATE_WP:
-        unpickle_models(WP.WP_models, "Pickle/WP Models/")
-        WP.WP_Models()
+        WP.WP_classification()
         print("\tpickling", Functions.timestamp())
         gc.collect()
-        pickle_models(WP.WP_models, "Pickle/WP Models/")
+        pickle_models(WP.WP_classification_models, "Pickle/WP Models/")
         pickle_gamelist()
     else:
-        unpickle_models(WP.WP_models, "Pickle/WP Models/") 
+        unpickle_models(WP.WP_classification_models, "Pickle/WP Models/") 
     return None
 
 
@@ -352,26 +352,30 @@ def redraw_plots():
         #P1DClass.teamseason()
         #FGClass.FG_PLOTS()
         #FGClass.FG_correlation()
-        #EPClass.EP_correlation()
+        #EPClass.EP_regression_correlation()
+        #EPClass.EP_classification_correlation()
+        #EPClass.EP_classification_values_correlation()
+        #EPClass.raw_EP_plots()
+        #EPClass.EP_classification_plots()
+        EPClass.EP_regression_plots()
         #EPClass.EP_PLOTS()
         #EPClass.teamseason()
-        WP.WP_correlation()
+        #WP.WP_correlation()
         #WP.WP_PLOTS()
         pass
     return None
 
 
-
 REPARSE_DATA = False
 RECALCULATE_EP = True
 RECALCULATE_WP = False
-RECALCULATE_FG = True
+RECALCULATE_FG = False
 DRAW_PLOTS = True
 
 
 reparse()
-#recalc_ep()
-recalc_wp()
+recalc_ep()
+#recalc_wp()
 #recalc_fg()
 redraw_plots()
 
@@ -391,10 +395,8 @@ print("ALL DONE", Functions.timestamp())
 '''
 # TODO: Consider changing all float to longdouble, because why the fuck not
 
-# TODO: rename the stuff like EP_models to make more sense, and create the parallel EP_classification and EP_regression, do the same for FG
-
 # TODO: What if we changed a lot of this shit to numpy variables? And we can do the same in all the objects and really streamline the whole thing.
-Would we see speed improvements? Maybe on som of the more complex shit, but I think it all gets fed around as numpy anyway in the background, or at least as C code.
+Would we see speed improvements? Maybe on some of the more complex shit, but I think it all gets fed around as numpy anyway in the background, or at least as C code.
 
 # TODO: Add a kick returner function like passer, receiver, tackler
 
@@ -420,13 +422,6 @@ like a dictionary is the proper data structure to use but I don't know
 if this really justifies it, since the calls will basically
 all have to be manual anyway we might as well just have the list on paper or in
 a note somewhere.
-
-# TODO: Decide if it's worthwhile to switch our graphs to OOP instead of the
-current state-based approach. We have a decent handle on the state method, but
-it's awkward and unintuitive, every time we try to use a new feature it's a
-slog. But it also is a huge hassle. Still, the learning curve will be steep
-because the OOP method seems equally painful, but I think it will be worthwhile
-long-term.
 
 # TODO: There doesn't seem to be enough 2-pt conversion atTEMPts, so look into
 the ODK function, it's probably logging a lot of field goals as 2-pt atTEMPts.

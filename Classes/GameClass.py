@@ -348,7 +348,7 @@ class game():
                 if "ROUGE" in play.playdesc:
                     play.score_play = "ROUGE"
                     play.score_play_is_off = True
-                elif play.FG_RSLT == "GOOD" and play.DOWN > 0:  # Filter PATs
+                elif play.FG_RSLT == "GOOD" and play.DOWN:  # Filter PATs
                     play.score_play = "FG"
                     play.score_play_is_off = True
                 elif "SAFETY" in play.playdesc:
@@ -636,7 +636,6 @@ class game():
         TODO: Rework with the new system of EP classification/regression models
         '''
         for play in self.playlist:
-            play.EP_classification_values = [sum([prob * Globals.score_values[score[0]] * (1 if score[1] else -1) for prob, score in zip(model, Globals.alpha_scores)]) for model in play.EP_classification_list]
             if play.DISTANCE < Globals.DISTANCE_LIMIT:
                 play.raw_EP = EPClass.EP_ARRAY[play.DOWN][play.DISTANCE][play.YDLINE].EP
             else:

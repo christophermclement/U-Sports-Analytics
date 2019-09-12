@@ -385,7 +385,7 @@ def FG_classification_correlation():
         r2 = Functions.RSquared(Functions.linearFit, [1, 0], xdata, ydata)
         
         plt.plot(xdata, Functions.linearFit(xdata, 1, 0), color='black',
-                 label="RMSE={0:5.4g}, R^2={1:5.4g}".format(rmse, r2,))
+                 label="RMSE={0:5.4g}, R^2={1:5.4g}".format(rmse, r2))
         plt.errorbar(xdata, ydata, yerr=error)
         plt.legend()
         plt.title("Correlation Graph for $P(FG)$,\n" + type(FG_classificaiton_models[m]).__name__)
@@ -418,7 +418,7 @@ def FG_regression_correlation():
         r2 = Functions.RSquared(Functions.linearFit, [1, 0], xdata, ydata)
         
         plt.plot(xdata, Functions.linearFit(xdata, 1, 0), color='black',
-                 label="RMSE={0:5.4g}, R^2={1:5.4g}".format(rmse, r2,))
+                 label="RMSE={0:5.4g}, R^2={1:5.4g}".format(rmse, r2))
         plt.errorbar(xdata, ydata, yerr=error)
         plt.legend()
         plt.title("Correlation Graph for $P(FG)$,\n" + type(FG_regression_models[m]).__name__)

@@ -29,6 +29,7 @@ class stadium():
         self.full_end_zones = full_end_zones  # True if the end zones are full sized, false if they are cut off (not full length, corners cut bc of track, etc.
         self.TZCode = TZCode  # Gives the appropriate code to handle time zones
         self.isDome = isDome  # True if it's a domed stadium
+        return None
 
 stadium_list =\
 [['Oland Stadium', 'Antigonish', 'NS', ['SFX'], 'FieldTurf', 4000, [45.616639, -61.994972], 359, 195, 'CYYG', False, "America/Halifax", False],
@@ -77,7 +78,7 @@ stadium_list =\
 
 stadia = {x[0] : stadium(*x) for x in stadium_list}
 
-high_accuracy = False  # This is a quick boolean to drastically reduce the degree of precision of our modeling for testing purposes
+high_accuracy = True  # This is a quick boolean to drastically reduce the degree of precision of our modeling for testing purposes
 if high_accuracy:
     BOOTSTRAP_SIZE = 1000  # Number of bootstrap iterations to use
     forest_trees = 1000
