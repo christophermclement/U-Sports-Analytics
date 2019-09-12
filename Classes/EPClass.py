@@ -32,9 +32,7 @@ class EP():
         self.DISTANCE = distance
         self.YDLINE = yardline
         self.EP = numpy.array([None, None, None], dtype = 'float')
-        # self.SMOOTHED = None  # TODO: Do we even use this anywhere?
 
-        # These are in the standard order
         self.Score_Counts = {("FG", True): 0,
                              ("FG", False): 0,
                              ("ROUGE", True): 0,
@@ -164,6 +162,8 @@ def EP_regression():
             for ydline in distance:
                 if ydline.EP_regression_list:
                     ydline.EP_regression_list = numpy.mean(numpy.array(ydline.EP_regression_list), axis = 0)
+                elif ydline.DISTANCE > ydline.YDLINE or ydline.DISTANCE + ydline.YDLINE > 109:
+                    ydline.EP_regression_list = numpy.full(len(EP_regression_models), numpy.nan)
                 else:
                     EP_data_x.append([ydline.DOWN, ydline.DISTANCE, ydline.YDLINE])
     outputlist = numpy.flip(numpy.array([model.predict(EP_data_x).tolist() for model in EP_regression_models]), axis=1).tolist()
@@ -227,6 +227,8 @@ def EP_classification():
             for ydline in distance:
                 if ydline.EP_classification_list:
                     ydline.EP_classification_list = numpy.mean(numpy.array(ydline.EP_classification_list), axis = 0).tolist()
+                elif ydline.DISTANCE > ydline.YDLINE or ydline.DISTANCE + ydline.YDLINE > 109:
+                    ydline.EP_classification_list = numpy.full((len(EP_classification_models), 9), numpy.nan)
                 else:
                     EP_data_x.append([ydline.DOWN, ydline.DISTANCE, ydline.YDLINE])
     outputlist = numpy.flip(numpy.array([model.predict_proba(EP_data_x).tolist() for model in EP_classification_models]), axis=1).tolist()
@@ -235,7 +237,6 @@ def EP_classification():
             for ydline in distance:
                 if ydline.EP_classification_list == []:
                     ydline.EP_classification_list = [model.pop() for model in outputlist]
-                ydline.EP_classification_values = [sum([prob * Globals.score_values[score[0]][1] * (1 if score[1] else -1) for prob, score in zip(model, Globals.alpha_scores)]) for model in ydline.EP_classification_list]
     print("\tArray populated", Functions.timestamp())
 
     Functions.printFeatures(EP_classification_models)
@@ -333,8 +334,8 @@ def raw_EP_plots():
                     temp.append(numpy.nan)
             heatmap_data.append(temp)
 
-        fig, ax = plt.subplots(1, 1, figsize = (5, 5))
-        ax.imshow(heatmap_data, origin='lower', aspect=2, cmap='rainbow',
+        fig, ax = plt.subplots(1, 1, figsize = (5, 3))
+        mappable = ax.imshow(heatmap_data, origin='lower', aspect=2, cmap='viridis',
                    vmin=Globals.score_values["TD"][1] * (-1),
                    vmax=Globals.score_values["TD"][1])
         fig.suptitle("EP for " + Functions.ordinals(down)
@@ -342,7 +343,7 @@ def raw_EP_plots():
         ax.set(xlabel="Yardline", ylabel="Distance")
         ax.grid()
         ax.axis([0, 100, 0, 25])
-        #ax.colorbar()
+        fig.colorbar(mappable, ax=ax)
         fig.savefig("Figures/EP/Raw EP(" + str(down) + " down) Raw", dpi=1000)
         plt.close('all')
         gc.collect()
@@ -351,7 +352,7 @@ def raw_EP_plots():
 
 def EP_regression_plots():
     '''
-    making the EP plots for the different classification models. Basically we're cribbing the raw code, but without consideration for confidence
+    making the EP plots for the different regression models. Basically we're cribbing the raw code, but without consideration for confidence
     '''
     print("Building EP regression graphs", Functions.timestamp())
 
@@ -386,8 +387,8 @@ def EP_regression_plots():
         # Heatmaps for later downs
         for down in [2, 3]:
             heatmap_data = numpy.array([[yardline.EP_regression_list[m] for yardline in distance] for distance in EP_ARRAY[down]])
-            fig, ax = plt.subplots(1, 1, figsize = (5, 5))
-            ax.imshow(heatmap_data, origin='lower', aspect=2, cmap='rainbow',
+            fig, ax = plt.subplots(1, 1, figsize = (5, 3))
+            mappable = ax.imshow(heatmap_data, origin='lower', aspect=2, cmap='viridis',
                        vmin=Globals.score_values["TD"][1] * (-1),
                        vmax=Globals.score_values["TD"][1])
             fig.suptitle("EP for " + Functions.ordinals(down)
@@ -395,7 +396,7 @@ def EP_regression_plots():
             ax.set(xlabel="Yardline", ylabel="Distance")
             ax.grid()
             ax.axis([0, 100, 0, 25])
-            #ax.colorbar()
+            fig.colorbar(mappable, ax=ax)
             fig.savefig("Figures/EP/EP(" + str(down) + " down) " + type(model).__name__, dpi=1000)
             plt.close('all')
             gc.collect()
@@ -438,15 +439,15 @@ def EP_classification_plots():
         # Heatmaps for later downs
         for down in [2, 3]:
             heatmap_data = numpy.array([[yardline.EP_classification_values[m] for yardline in distance] for distance in EP_ARRAY[down]])
-            fig, ax = plt.subplots(1, 1, figsize = (5, 5))
-            ax.imshow(heatmap_data, origin='lower', aspect=2, cmap='rainbow',
+            fig, ax = plt.subplots(1, 1, figsize = (5, 3))
+            mappable = ax.imshow(heatmap_data, origin='lower', aspect=2, cmap='viridis',
                        vmin=Globals.score_values["TD"][1] * (-1),
                        vmax=Globals.score_values["TD"][1])
             fig.suptitle("EP for " + Functions.ordinals(down) + " Down by Distance and Yardline,\n" + type(model).__name__)
             ax.set(xlabel="Yardline", ylabel="Distance")
             ax.grid()
             ax.axis([0, 100, 0, 25])
-            #ax.colorbar()
+            fig.colorbar(mappable, ax=ax)
             fig.savefig("Figures/EP/EP(" + str(down) + " down) " + type(model).__name__, dpi=1000)
             plt.close('all')
             gc.collect()
@@ -473,7 +474,7 @@ def EP_regression_correlation():
         print("\t\tBuilding graph for " + type(model).__name__, Functions.timestamp())
         fig, ax = plt.subplots(1, 1, figsize=(5, 5))
         Functions.correlation_values_graph([[datum[0][m], datum[1][0]] for datum in data], ax)
-        fig.suptitle("Probability Correlation Graph for Expected Points,\n" + type(model).__name__)
+        fig.suptitle("Correlation Graph for Expected Points,\n" + type(model).__name__)
         fig.savefig("Figures/EP/EP Correlation(" + type(model).__name__+ ")", dpi=1000)
         plt.close('all')
         gc.collect()
@@ -510,7 +511,7 @@ def EP_regression_correlation():
             Functions.correlation_values_graph([[datum[0][m], datum[1][0]] for datum in data if datum[1][3] == home], ax)
             ax.set_title("Home" if home else "Away")
         figs.suptitle("Correlation Graph for Expected Points,\n" + type(model).__name__ + ", by Home/Away")
-        figs.savefig("Figures/EP/EP Correlation(" + type(model).__name__ + ", by Home-Away", dpi=1000)
+        figs.savefig("Figures/EP/EP Correlation(" + type(model).__name__ + "), by Home-Away", dpi=1000)
         plt.close('all')
         gc.collect()
             

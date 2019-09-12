@@ -23,7 +23,7 @@ import itertools
 import gc
 import os
 import random
-
+import line_profiler
 
 def import_mule(csvmule, mule):
     '''
@@ -255,13 +255,6 @@ def reparse():
 
 def recalc_ep():
     if RECALCULATE_EP:
-
-        '''
-        Bringing in these pickles and then retraining lets us jump to the warm start part of the game
-        '''
-        #unpickle_models(EPClass.EP_classification_models, "Pickle/EP Models/")
-        #unpickle_models(EPClass.EP_regression_models, "Pickle/EP Models/")
-
         EPClass.BOOTSTRAP()
         PuntClass.P_EP()
         PuntClass.P_boot()
@@ -276,7 +269,7 @@ def recalc_ep():
         for game in Globals.gamelist:
             game.EPA_FN()
 
-        print("    pickling", Functions.timestamp())
+        print("\tpickling", Functions.timestamp())
         with open("Pickle/EPARRAY", 'wb') as file:
             pickle.dump(EPClass.EP_ARRAY, file)
 
@@ -355,7 +348,7 @@ def redraw_plots():
         #EPClass.EP_regression_correlation()
         #EPClass.EP_classification_correlation()
         #EPClass.EP_classification_values_correlation()
-        #EPClass.raw_EP_plots()
+        EPClass.raw_EP_plots()
         #EPClass.EP_classification_plots()
         EPClass.EP_regression_plots()
         #EPClass.EP_PLOTS()
@@ -367,7 +360,7 @@ def redraw_plots():
 
 
 REPARSE_DATA = False
-RECALCULATE_EP = True
+RECALCULATE_EP = False
 RECALCULATE_WP = False
 RECALCULATE_FG = False
 DRAW_PLOTS = True
