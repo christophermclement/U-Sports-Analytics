@@ -162,7 +162,7 @@ def EP_regression():
             for ydline in distance:
                 if ydline.EP_regression_list:
                     ydline.EP_regression_list = numpy.mean(numpy.array(ydline.EP_regression_list), axis = 0)
-                elif ydline.DISTANCE > ydline.YDLINE or ydline.DISTANCE + ydline.YDLINE > 109:
+                elif ydline.DISTANCE > ydline.YDLINE or ydline.YDLINE - ydline.DISTANCE > 100:
                     ydline.EP_regression_list = numpy.full(len(EP_regression_models), numpy.nan)
                 else:
                     EP_data_x.append([ydline.DOWN, ydline.DISTANCE, ydline.YDLINE])
@@ -181,8 +181,7 @@ def EP_regression():
 def EP_classification():
     '''
     Building the different EP classification models
-    We have logit, kNN, and RF. Going forward we can consider adding an NN
-    model, or a GAM or whatever else we want.
+
     '''
     print("Building EP classification models", Functions.timestamp())
     print("\tEP classification models:", [type(model).__name__ for model in EP_classification_models])
@@ -322,7 +321,7 @@ def raw_EP_plots():
     # Here's the heatmap with the raw data
     for down in [2, 3]:
         heatmap_data = []
-        for distance in EP_ARRAY[down][1:]:
+        for distance in EP_ARRAY[down]:
             temp = []
             for ydline in distance[1:]:
                 if ydline.DISTANCE <= ydline.YDLINE and ydline.YDLINE - ydline.DISTANCE < 100:
@@ -342,7 +341,7 @@ def raw_EP_plots():
                   + " Down by Distance and Yardline,\nRaw Data")
         ax.set(xlabel="Yardline", ylabel="Distance")
         ax.grid()
-        ax.axis([0, 100, 0, 25])
+        ax.axis([0, 110, 0, 25])
         fig.colorbar(mappable, ax=ax)
         fig.savefig("Figures/EP/Raw EP(" + str(down) + " down) Raw", dpi=1000)
         plt.close('all')
@@ -395,7 +394,7 @@ def EP_regression_plots():
                       + " Down by Distance and Yardline,\n" + type(model).__name__)
             ax.set(xlabel="Yardline", ylabel="Distance")
             ax.grid()
-            ax.axis([0, 100, 0, 25])
+            ax.axis([0, 110, 0, 25])
             fig.colorbar(mappable, ax=ax)
             fig.savefig("Figures/EP/EP(" + str(down) + " down) " + type(model).__name__, dpi=1000)
             plt.close('all')

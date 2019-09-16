@@ -33,9 +33,7 @@ class KO():
 
     def boot(self):
         if len(self.EP_ARRAY) > 10:
-            self.BOOTSTRAP = numpy.sort(numpy.array([numpy.average(
-                numpy.random.choice(self.EP_ARRAY, len(self.EP_ARRAY), replace=True))
-                for _ in range(Globals.BOOTSTRAP_SIZE)], dtype='f4'))
+            self.BOOTSTRAP = Functions.bootstrap(self.EP_ARRAY)
             self.EP[2] = self.BOOTSTRAP[int(Globals.BOOTSTRAP_SIZE * (1 - Globals.CONFIDENCE))]
             self.EP[0] = self.BOOTSTRAP[int(Globals.BOOTSTRAP_SIZE * Globals.CONFIDENCE - 1)]
         return None
@@ -75,8 +73,6 @@ def KO_EP():
     hunt down the next play, and then look up it's raw EP value. Since the
     next play should always be 1st & 10 we know we'll always have a solid EP
     value.
-    # TODO: Would we be better served by having SCOREvals in a dict? I think we
-    would but how much rewriting would it take?
     '''
     try:
         for g, game in enumerate(Globals.gamelist):  # This probably doesn't need enumerating
