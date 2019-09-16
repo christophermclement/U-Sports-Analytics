@@ -23,7 +23,6 @@ import itertools
 import gc
 import os
 import random
-import line_profiler
 
 def import_mule(csvmule, mule):
     '''
@@ -348,10 +347,9 @@ def redraw_plots():
         #EPClass.EP_regression_correlation()
         #EPClass.EP_classification_correlation()
         #EPClass.EP_classification_values_correlation()
-        EPClass.raw_EP_plots()
+        #EPClass.raw_EP_plots()
         #EPClass.EP_classification_plots()
         EPClass.EP_regression_plots()
-        #EPClass.EP_PLOTS()
         #EPClass.teamseason()
         #WP.WP_correlation()
         #WP.WP_PLOTS()
@@ -360,7 +358,7 @@ def redraw_plots():
 
 
 REPARSE_DATA = False
-RECALCULATE_EP = False
+RECALCULATE_EP = True
 RECALCULATE_WP = False
 RECALCULATE_FG = False
 DRAW_PLOTS = True
