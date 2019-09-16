@@ -17,7 +17,6 @@ import sklearn.ensemble
 import sklearn.neural_network
 import scipy.optimize
 from sklearn.model_selection import KFold
-
 import csv
 
 
@@ -96,7 +95,7 @@ EP_ARRAY = [[[EP(down, distance, yardline) for yardline in range(110)] for dista
 
 EP_classification_models = []
 #EP_classification_models.append(sklearn.linear_model.LogisticRegression(multi_class='multinomial', solver='saga', max_iter=10000))
-EP_classification_models.append(sklearn.neighbors.KNeighborsClassifier())
+#EP_classification_models.append(sklearn.neighbors.KNeighborsClassifier())
 #EP_classification_models.append(sklearn.ensemble.RandomForestClassifier(n_estimators=Globals.forest_trees, n_jobs=-1))
 EP_classification_models.append(sklearn.neural_network.MLPClassifier(max_iter=1000, hidden_layer_sizes=Globals.neural_network, warm_start=True))
 EP_classification_models.append(sklearn.ensemble.GradientBoostingClassifier(n_estimators=Globals.forest_trees, warm_start=True))
@@ -154,7 +153,7 @@ def EP_regression():
             for ydline in distance:
                 if ydline.EP_regression_list:
                     ydline.EP_regression_list = numpy.mean(numpy.array(ydline.EP_regression_list), axis = 0)
-                elif ydline.DISTANCE > ydline.YDLINE or ydline.YDLINE - ydline.DISTANCE > 100:
+                elif ydline.DISTANCE > ydline.YDLINE or ydline.YDLINE - ydline.DISTANCE < 100:
                     ydline.EP_regression_list = numpy.full(len(EP_regression_models), numpy.nan)
                 else:
                     EP_data_x.append([ydline.DOWN, ydline.DISTANCE, ydline.YDLINE])
@@ -218,10 +217,11 @@ def EP_classification():
             for ydline in distance:
                 if ydline.EP_classification_list:
                     ydline.EP_classification_list = numpy.mean(numpy.array(ydline.EP_classification_list), axis = 0).tolist()
-                elif ydline.DISTANCE > ydline.YDLINE or ydline.DISTANCE + ydline.YDLINE > 109:
+                elif ydline.DISTANCE > ydline.YDLINE or ydline.YDLINE - ydline.DISTANCE < 100:
                     ydline.EP_classification_list = numpy.full((len(EP_classification_models), 9), numpy.nan)
                 else:
                     EP_data_x.append([ydline.DOWN, ydline.DISTANCE, ydline.YDLINE])
+                ydline.EP_classification_values = [sum([prob * Globals.score_values[score[0]][1] * (1 if score[1] else -1) for prob, score in zip(model, Globals.alpha_scores)]) for model in play.EP_classification_list]
     outputlist = numpy.flip(numpy.array([model.predict_proba(EP_data_x).tolist() for model in EP_classification_models]), axis=1).tolist()
     for down in EP_ARRAY:
         for distance in down:
@@ -445,7 +445,7 @@ def EP_classification_plots():
 
     return None
 
-        
+      
 def EP_regression_correlation():
     '''
     This method creates all the relevant correlation graphs for the EP regression models
