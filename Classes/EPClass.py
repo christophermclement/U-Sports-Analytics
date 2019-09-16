@@ -53,20 +53,17 @@ class EP():
                          [None, None, None]]
 
         self.BOOTSTRAP = Globals.DummyArray
-        # TODO: These should probably be deleted once we show that they're no longer relevant
-        #self.EP_probs_list = []
-        #self.EP_list = []
 
         self.EP_regression_list = []
         self.EP_classification_list = []  # These are the actual output probabilities for the classification models
         self.EP_classification_values = []  # These are the probabilities converted to EP values. 
-        # TODO: Technically we don'the classification values since it can be derived from the list need this but it's a long one-liner.
 
     def binom(self):
         '''
         Finds the binomial confidence intervals for each score probability
-        TODO: no more self.N
+        TODO: This has to be converted to a dict, it's illogical to have this as a list.
         '''
+        
         if sum(self.Score_Counts.values()):
             for x in range(9):
                 self.P_Scores[x][1] = self.Score_Counts[x] / sum(self.Score_Counts.values())
@@ -80,13 +77,8 @@ class EP():
         TODO: Fix this with the new system
         '''
         if sum(self.Score_Counts.values()):
-            self.BOOTSTRAP =\
-                numpy.sort(
-                    numpy.array([
-                        numpy.average(
-                         numpy.random.choice(
-                             [y for x in [self.Score_Counts[x] * [Globals.score_values[x[0]][1] * (1 if x[1] else -1)] for x in self.Score_Counts] for y in x],
-                             sum(self.Score_Counts.values()), replace=True)) for _ in range(Globals.BOOTSTRAP_SIZE)], dtype='float'))
+            self.BOOTSTRAP = Functions.bootstrap(
+                             [y for x in [self.Score_Counts[x] * [Globals.score_values[x[0]][1] * (1 if x[1] else -1)] for x in self.Score_Counts] for y in x])
 
             self.EP[0] = self.BOOTSTRAP[int(Globals.BOOTSTRAP_SIZE * Globals.CONFIDENCE - 1)]
             self.EP[2] = self.BOOTSTRAP[int(Globals.BOOTSTRAP_SIZE * (1 - Globals.CONFIDENCE))]
