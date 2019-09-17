@@ -22,19 +22,19 @@ class Punt():
     def __init__(self, ydline):
         self.YDLINE = ydline
 
-        self.EP = [None, None, None]  # Average EP value of this punt
+        self.EP = numpy.full(3, numpy.nan)  # Average EP value of this punt
         self.EP_ARRAY = []  # List holding all the EP data
         self.EP_BOOTSTRAP = Globals.DummyArray  # Bootstrap of EP to determine CI
 
-        self.gross = [None, None, None]
+        self.gross = numpy.full(3, numpy.nan)
         self.gross_array = []
         self.gross_bootstrap = Globals.DummyArray
 
-        self.net = [None, None, None]
+        self.net = numpy.full(3, numpy.nan)
         self.net_array = []
         self.net_bootstrap = Globals.DummyArray
 
-        self.spread = [None, None, None]
+        self.spread = numpy.full(3, numpy.nan)
         self.spread_array = []
         self.spread_bootstrap = Globals.DummyArray
 
@@ -44,39 +44,32 @@ class Punt():
         average and confidence intervals.
         '''
         if len(self.EP_ARRAY) > 10:
-            self.ep_bootstrap = numpy.sort(numpy.array([numpy.average(numpy.random.choice(self.EP_ARRAY, len(self.EP_ARRAY), replace=True))
-                                                        for _ in range(Globals.BOOTSTRAP_SIZE)], dtype='f4'))
+            self.ep_bootstrap = Functions.bootstrap(self.EP_ARRAY)
             self.EP =\
-                [self.ep_bootstrap[int(Globals.BOOTSTRAP_SIZE * Globals.CONFIDENCE - 1)],
+                numpy.array([self.ep_bootstrap[int(Globals.BOOTSTRAP_SIZE * Globals.CONFIDENCE - 1)],
                  (sum(self.EP_ARRAY) / float(len(self.EP_ARRAY))),
-                 self.ep_bootstrap[int(Globals.BOOTSTRAP_SIZE * (1 - Globals.CONFIDENCE))]]
+                 self.ep_bootstrap[int(Globals.BOOTSTRAP_SIZE * (1 - Globals.CONFIDENCE))]])
 
         if len(self.gross_array) > 10:
-            self.gross_bootstrap = numpy.sort(numpy.array([numpy.average(numpy.random.choice(self.gross_array, len(self.gross_array), replace=True))
-                                                           for _ in range(Globals.BOOTSTRAP_SIZE)], dtype='f4'))
-
+            self.gross_bootstrap = Functions.bootstrap(self.gross_array)
             self.gross =\
-                [self.gross_bootstrap[int(Globals.BOOTSTRAP_SIZE * Globals.CONFIDENCE - 1)],
+                numpy.array([self.gross_bootstrap[int(Globals.BOOTSTRAP_SIZE * Globals.CONFIDENCE - 1)],
                  (sum(self.gross_array) / float(len(self.gross_array))),
-                 self.gross_bootstrap[int(Globals.BOOTSTRAP_SIZE * (1 - Globals.CONFIDENCE))]]
+                 self.gross_bootstrap[int(Globals.BOOTSTRAP_SIZE * (1 - Globals.CONFIDENCE))]])
 
         if len(self.net_array) > 10:
-            self.net_bootstrap = numpy.sort(numpy.array([numpy.average(numpy.random.choice(self.net_array, len(self.net_array), replace=True))
-                                                         for _ in range(Globals.BOOTSTRAP_SIZE)], dtype='f4'))
-
+            self.net_bootstrap = Functions.bootstrap(self.net_array)
             self.net =\
-                [self.net_bootstrap[int(Globals.BOOTSTRAP_SIZE * Globals.CONFIDENCE - 1)],
+                numpy.array([self.net_bootstrap[int(Globals.BOOTSTRAP_SIZE * Globals.CONFIDENCE - 1)],
                  (sum(self.net_array) / float(len(self.net_array))),
-                 self.net_bootstrap[int(Globals.BOOTSTRAP_SIZE * (1 - Globals.CONFIDENCE))]]
+                 self.net_bootstrap[int(Globals.BOOTSTRAP_SIZE * (1 - Globals.CONFIDENCE))]])
 
         if len(self.spread_array) > 10:
-            self.spread_bootstrap = numpy.sort(numpy.array([numpy.average(numpy.random.choice(self.spread_array, len(self.spread_array), replace=True))
-                                                            for _ in range(Globals.BOOTSTRAP_SIZE)], dtype='f4'))
-
+            self.spread_bootstrap = Functions.bootstrap(self.spread_array)
             self.spread =\
-                [self.spread_bootstrap[int(Globals.BOOTSTRAP_SIZE * Globals.CONFIDENCE - 1)],
+                numpy.array([self.spread_bootstrap[int(Globals.BOOTSTRAP_SIZE * Globals.CONFIDENCE - 1)],
                  (sum(self.spread_array) / float(len(self.spread_array))),
-                 self.spread_bootstrap[int(Globals.BOOTSTRAP_SIZE * (1 - Globals.CONFIDENCE))]]
+                 self.spread_bootstrap[int(Globals.BOOTSTRAP_SIZE * (1 - Globals.CONFIDENCE))]])
         return None
 
 PUNT_ARRAY = [Punt(ydline) for ydline in range(110)]
@@ -95,7 +88,6 @@ def P_EP():
     '''
     Populates the punt EP array
     '''
-    global PUNT_ARRAY
     try:
         for g, game in enumerate(Globals.gamelist):
             for p, play in enumerate(game.playlist):
@@ -107,6 +99,12 @@ def P_EP():
                         for n, nextPlay in enumerate(game.playlist[p + 1:]):
                             PUNT_ARRAY[play.YDLINE].EP_ARRAY.append(numpy.float(EPClass.EP_ARRAY[nextPlay.DOWN][nextPlay.DISTANCE][nextPlay.YDLINE].EP[1] * (1 if nextPlay.OFFENSE == play.OFFENSE else -1)))
                             break
+                    if play.puntGross:
+                        PUNT_ARRAY[play.YDLINE].gross_array.append(play.puntGross)
+                    if play.puntNet:
+                        PUNT_ARRAY[play.YDLINE].net_array.append(play.puntNet)
+                    if play.puntSpread:
+                        PUNT_ARRAY[play.YDLINE].net_array.append(play.puntSpread)
     except Exception as err:
         print(play.MULE, play.playdesc)
         print(err)
@@ -122,22 +120,23 @@ def P_PLOTS():
     # EP vs ydline
     xdata = numpy.array([ydline.YDLINE for ydline in PUNT_ARRAY if ydline.N > Globals.THRESHOLD])
     ydata = numpy.array([ydline.EP[1] for ydline in PUNT_ARRAY if ydline.N > Globals.THRESHOLD])
-    error = numpy.array([[ydline.EP[1] - ydline.EP[0] for ydline in PUNT_ARRAY if ydline.N > Globals.THRESHOLD],
-                         [ydline.EP[2] - ydline.EP[1] for ydline in PUNT_ARRAY if ydline.N > Globals.THRESHOLD]])
+    error = numpy.array([[ydline.EP[1] - ydline.EP[0] for ydline in PUNT_ARRAY if len(ydline.EP_ARRAY) > Globals.THRESHOLD],
+                         [ydline.EP[2] - ydline.EP[1] for ydline in PUNT_ARRAY if len(ydline.EP_ARRAY) > Globals.THRESHOLD]])
     func = Functions.cubicFit
     fit = scipy.optimize.curve_fit(func, xdata, ydata)[0]
     rmse = Functions.RMSE(func, fit, numpy.array(xdata), numpy.array(ydata))
     r2 = Functions.RSquared(func, fit, numpy.array(xdata), numpy.array(ydata))
-    plt.errorbar(xdata, ydata, yerr=error, fmt='D', color='purple', ms=3)
-    plt.plot(numpy.arange(111), func(numpy.arange(111), *fit), color='purple', label=Functions.fitLabels(func).format(*fit, r2, rmse))
-    plt.xlabel("Yardline")
-    plt.ylabel("EP(P)")
-    plt.title("EP(P) by Yardline")
-    plt.grid(True)
-    plt.axis([30, 111, -3, 2])
-    plt.legend(loc='best')
-    plt.savefig("Figures/P/EP(P)", dpi=1000)
-    plt.show()
+    fig, ax = plt.subplots(1, 1, figsize=(5, 5))
+    ax.errorbar(xdata, ydata, yerr=error, fmt='D', color='purple', ms=3)
+    ax.plot(numpy.arange(111), func(numpy.arange(111), *fit), color='purple', label=Functions.fitLabels(func).format(*fit, r2, rmse))
+    ax.set_(xlabel="Yardline", ylabel="EP(P)")
+    fig.suptitle("EP(P) by Yardline")
+    ax.grid(True)
+    ax.axis([30, 111, -3, 2])
+    ax.legend(loc='best')
+    fig.savefig("Figures/P/EP(P)", dpi=1000)
+    plt.close('all')
+    gc.collect()
 
     #Gross vs ydline
     xdata = numpy.array([ydline.YDLINE for ydline in PUNT_ARRAY if len(ydline.gross_array) > Globals.THRESHOLD])
@@ -148,16 +147,17 @@ def P_PLOTS():
     fit = scipy.optimize.curve_fit(func, xdata, ydata)[0]
     rmse = Functions.RMSE(func, fit, xdata, ydata)
     r2 = Functions.RSquared(func, fit, xdata, ydata)
-    plt.errorbar(xdata, ydata, error, color='purple', fmt='D', ms=3)
-    plt.plot(numpy.arange(111), func(numpy.arange(111), *fit), color='purple', label=Functions.fitLabels(func).format(*fit, r2, rmse))
-    plt.xlabel("Yardline")
-    plt.ylabel("Gross yardage")
-    plt.title("Gross Punt Yardage by Starting Yardline")
-    plt.legend()
-    plt.grid(True)
-    plt.axis([30, 111, 0, 50])
-    plt.savefig("Figures/P/Punt gross by starting yardline", dpi=1000)
-    plt.show()
+    fig, ax = plt.subplots(1, 1, figsize=(5, 5))
+    ax.errorbar(xdata, ydata, error, color='purple', fmt='D', ms=3)
+    ax.plot(numpy.arange(111), func(numpy.arange(111), *fit), color='purple', label=Functions.fitLabels(func).format(*fit, r2, rmse))
+    ax.set(xlabel="Yardline", ylabel="Gross yardage")
+    fig.suptitle("Gross Punt Yardage by Starting Yardline")
+    ax.legend(loc='best')
+    ax.grid(True)
+    ax.axis([30, 111, 0, 50])
+    fig.savefig("Figures/P/Punt gross by starting yardline", dpi=1000)
+    plt.close('all')
+    gc.collect()
 
     #Net vs ydline
     xdata = numpy.array([ydline.YDLINE for ydline in PUNT_ARRAY if len(ydline.net_array) > Globals.THRESHOLD])
@@ -168,16 +168,17 @@ def P_PLOTS():
     fit = scipy.optimize.curve_fit(func, xdata, ydata)[0]
     rmse = Functions.RMSE(func, fit, xdata, ydata)
     r2 = Functions.RSquared(func, fit, xdata, ydata)
-    plt.errorbar(xdata, ydata, error, color='purple', fmt='D', ms=3)
-    plt.plot(numpy.arange(111), func(numpy.arange(111), *fit), color='purple', label=Functions.fitLabels(func).format(*fit, r2, rmse))
-    plt.xlabel("Yardline")
-    plt.ylabel("Net Yardage")
-    plt.title("Punt Net by Yardline")
-    plt.legend()
-    plt.grid(True)
-    plt.axis([30, 111, 0, 50])
-    plt.savefig("Figures/P/Punt Net by yardline", dpi=1000)
-    plt.show()
+    fig, ax = plt.subplots(1, 1, figsize=(5, 5))
+    ax.errorbar(xdata, ydata, error, color='purple', fmt='D', ms=3)
+    ax.plot(numpy.arange(111), func(numpy.arange(111), *fit), color='purple', label=Functions.fitLabels(func).format(*fit, r2, rmse))
+    ax.set(xlabel="Yardline", ylabel="Net Yardage")
+    fig.suptitle("Punt Net by Yardline")
+    ax.legend(loc='best')
+    ax.grid(True)
+    ax.axis([30, 111, 0, 50])
+    fig.savefig("Figures/P/Punt Net by yardline", dpi=1000)
+    plt.close('all')
+    gc.collect()
 
     # Spread vs Ydline
     xdata = numpy.array([ydline.YDLINE for ydline in PUNT_ARRAY if len(ydline.spread_array) > Globals.THRESHOLD])
@@ -188,32 +189,34 @@ def P_PLOTS():
     fit = scipy.optimize.curve_fit(func, xdata, ydata)[0]
     rmse = Functions.RMSE(func, fit, xdata, ydata)
     r2 = Functions.RSquared(func, fit, xdata, ydata)
-    plt.errorbar(xdata, ydata, error, color='purple', fmt='D', ms=3)
-    plt.plot(numpy.arange(111), func(numpy.arange(111), *fit), color='purple', label=Functions.fitLabels(func).format(*fit, r2, rmse))
-    plt.xlabel("Yardline")
-    plt.ylabel("Spread Yardage")
-    plt.title("Punt Spread by Yardline")
-    plt.legend()
-    plt.grid(True)
-    plt.axis([30, 111, 0, 30])
-    plt.savefig("Figures/P/Spread by Ydline", dpi=1000)
-    plt.show()
+    fig, ax = plt.subplots(1, 1, figsize=(5, 5))
+    ax.errorbar(xdata, ydata, error, color='purple', fmt='D', ms=3)
+    ax.plot(numpy.arange(111), func(numpy.arange(111), *fit), color='purple', label=Functions.fitLabels(func).format(*fit, r2, rmse))
+    ax.set(xlabel="Yardline", ylabel="Spread Yardage")
+    fig.suptitle("Punt Spread by Yardline")
+    ax.legend(loc='best')
+    ax.grid(True)
+    ax.axis([30, 111, 0, 30])
+    fig.savefig("Figures/P/Spread by Ydline", dpi=1000)
+    plt.close('all')
+    gc.collect()
 
     # Gross and net on same graph
+    fig, ax = plt.subplots(1, 1, figsize=(5, 5))
     xdata = numpy.array([ydline.YDLINE for ydline in PUNT_ARRAY if len(ydline.gross_array) > Globals.THRESHOLD])
     ydata = numpy.array([ydline.gross[1] for ydline in PUNT_ARRAY if len(ydline.gross_array) > Globals.THRESHOLD])
-    plt.plot(xdata, ydata, color='blue', label='Gross')
+    ax.plot(xdata, ydata, color='blue', label='Gross')
     xdata = numpy.array([ydline.YDLINE for ydline in PUNT_ARRAY if len(ydline.net_array) > Globals.THRESHOLD])
     ydata = numpy.array([ydline.net[1] for ydline in PUNT_ARRAY if len(ydline.net_array) > Globals.THRESHOLD])
-    plt.plot(xdata, ydata, color='red', label='Net')
-    plt.xlabel("Yardline")
-    plt.ylabel("Yardage")
-    plt.title("Punt Gross and Net by Yardline")
-    plt.legend()
-    plt.grid(True)
-    plt.axis([30, 111, 0, 50])
-    plt.savefig("Figures/P/Gross and Net by Ydline", dpi=1000)
-    plt.show()
+    ax.plot(xdata, ydata, color='red', label='Net')
+    ax.set(xlabel="Yardline", ylabel="Yardage")
+    fig.suptitle("Punt Gross and Net by Yardline")
+    ax.legend(loc='best')
+    ax.grid(True)
+    ax.axis([30, 111, 0, 50])
+    fig.savefig("Figures/P/Gross and Net by Ydline", dpi=1000)
+    plt.close('all')
+    gc.collect()
 
     # PUNT EPA by ydline
     xdata = numpy.array([ydline.YDLINE for ydline in PUNT_ARRAY if ydline.N > Globals.THRESHOLD])
@@ -225,13 +228,13 @@ def P_PLOTS():
     fit = scipy.optimize.curve_fit(func, xdata, ydata)[0]
     rmse = Functions.RMSE(func, fit, numpy.array(xdata), numpy.array(ydata))
     r2 = Functions.RSquared(func, fit, numpy.array(xdata), numpy.array(ydata))
-    plt.errorbar(xdata, ydata, yerr=error, fmt='D', color='purple', ms=3)
-    plt.plot(numpy.arange(111), func(numpy.arange(111), *fit), color='purple', label=Functions.fitLabels(func).format(*fit, r2, rmse))
-    plt.xlabel("Yardline")
-    plt.ylabel("EP(P)")
-    plt.title("EP(P) by Yardline")
-    plt.grid(True)
-    plt.axis([30, 111, -3, 2])
-    plt.legend(loc='best')
-    plt.savefig("Figures/P/EP(P)", dpi=1000)
-    plt.show()
+    fig, ax = plt.subplots(1, 1, figsize=(5, 5))
+    ax.errorbar(xdata, ydata, yerr=error, fmt='D', color='purple', ms=3)
+    ax.plot(numpy.arange(111), func(numpy.arange(111), *fit), color='purple', label=Functions.fitLabels(func).format(*fit, r2, rmse))
+    ax.set(xlabel="Yardline", ylabel="EP(P)")
+    fig.suptitle("EP(P) by Yardline")
+    ax.grid(True)
+    ax.axis([30, 111, -3, 2])
+    ax.legend(loc='best')
+    fig.savefig("Figures/P/EP(P)", dpi=1000)
+    plt.close('all')

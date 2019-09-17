@@ -47,7 +47,7 @@ def score_bootstrap():
     # The value of a TD is the 6 nominal points, the probability of the 1-pt (until 2-pt becomes more popular we'll simplify) and the value of the resultant KO)
     Globals.score_bootstraps["TD"] = \
         numpy.sort(6 
-            + KOClass.KO_ARRAY[65].BOOTSTRAP 
+            + KOClass.KO_ARRAY[65].EP_bootstrap
             + numpy.random.binomial(sum(FGClass.FG_ARRAY[5].counts.values()), FGClass.FG_ARRAY[5].probabilities["GOOD"][1], Globals.BOOTSTRAP_SIZE) / sum(FGClass.FG_ARRAY[5].counts.values()))
 
     Globals.score_bootstraps["ROUGE"] = numpy.sort(1 - EPClass.EP_ARRAY[1][10][75].BOOTSTRAP)  # The adjustment for the rouge is purely based on the value of the resultant possession
@@ -60,7 +60,7 @@ def score_bootstrap():
     if EPClass.EP_ARRAY[1][10][75].EP[1] > (-1) * KOClass.KO_ARRAY[75].EP[1]:
         Globals.score_bootstraps["SAFETY"] = numpy.sort(-2 - EPClass.EP_ARRAY[1][10][75].BOOTSTRAP)
     else:
-        Globals.score_bootstraps["SAFETY"] = numpy.sort(-2 + KOClass.KO_ARRAY[75].BOOTSTRAP)
+        Globals.score_bootstraps["SAFETY"] = numpy.sort(-2 + KOClass.KO_ARRAY[75].EP_bootstrap)
 
     for score in Globals.score_values:
         Globals.score_values[score][2] = Globals.score_bootstraps[score][int(Globals.BOOTSTRAP_SIZE * (1 - Globals.CONFIDENCE))]
@@ -257,11 +257,12 @@ def recalc_ep():
         EPClass.BOOTSTRAP()
         PuntClass.P_EP()
         PuntClass.P_boot()
+        KOClass.KO_counts()
         KOClass.KO_boot()
         FGClass.FG_boot()
         score_bootstrap()
         
-        EPClass.EP_classification()
+        #EPClass.EP_classification()
         EPClass.EP_regression()
         
 
@@ -344,13 +345,14 @@ def redraw_plots():
         #P1DClass.teamseason()
         #FGClass.FG_PLOTS()
         #FGClass.FG_correlation()
+        KOClass.KO_plots()
         #EPClass.EP_regression_correlation()
         #EPClass.EP_classification_correlation()
         #EPClass.EP_classification_values_correlation()
         #EPClass.raw_EP_plots()
         #EPClass.EP_classification_plots()
-        EPClass.EP_regression_plots()
-        #EPClass.teamseason()
+        #EPClass.EP_regression_plots()
+        EPClass.teamseason()
         #WP.WP_correlation()
         #WP.WP_PLOTS()
         pass
@@ -358,6 +360,12 @@ def redraw_plots():
 
 
 REPARSE_DATA = False
+for game in Globals.gamelist:
+    for play in game.playlist:
+        if play.DOWN == 0:
+            if play.YDLINE > 35:
+                if play.ODK == "FG":
+                    print(play.MULE, play.playdesc)
 RECALCULATE_EP = True
 RECALCULATE_WP = False
 RECALCULATE_FG = False
@@ -366,7 +374,8 @@ DRAW_PLOTS = True
 
 reparse()
 recalc_ep()
-for down in EPClass.EP_ARRAY:
+for game in Globals.gamelist:
+    game.EPA_FN()
 #recalc_wp()
 #recalc_fg()
 redraw_plots()
@@ -385,11 +394,6 @@ the list of all unique passers and receivers.
 print("ALL DONE", Functions.timestamp())
 
 '''
-# TODO: Consider changing all float to longdouble, because why the fuck not
-
-# TODO: What if we changed a lot of this shit to numpy variables? And we can do the same in all the objects and really streamline the whole thing.
-Would we see speed improvements? Maybe on some of the more complex shit, but I think it all gets fed around as numpy anyway in the background, or at least as C code.
-
 # TODO: Add a kick returner function like passer, receiver, tackler
 
 # TODO: Add a rusher function like passer, receiver, tackler

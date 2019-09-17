@@ -364,7 +364,7 @@ def EP_regression_plots():
         R2 = Functions.RSquared(Functions.linearFit, fit, xdata, ydata)
         fig, ax = plt.subplots(1, 1, figsize=(5, 5))
         ax.errorbar(xdata, ydata, fmt='x', color='green', ms=3)
-        plt.plot(numpy.arange(110), Functions.linearFit(numpy.arange(110), *fit),
+        ax.plot(numpy.arange(110), Functions.linearFit(numpy.arange(110), *fit),
                  color='green', label="y={0:5.4g}x+{1:5.4g}\nRMSE={2:5.4g}, R^2={3:5.4g}".format(*fit, rmse, R2))
         ax.set(xlabel="Yardline", ylabel="EP")
         ax.grid(True)
@@ -625,3 +625,77 @@ def EP_classification_values_correlation():
         plt.close('all')
         gc.collect()
 
+
+def teamseason():
+    '''
+    Creates a bunch of graphs to show team-season EPA
+    '''
+
+    for m, model in enumerate(EP_regression_models):
+        gc.collect()
+        for season in range(2002, 2019):
+            for team in Globals.CISTeams:
+                print(team, season)
+                tempdata = [[], []]
+                for game in Globals.gamelist:
+                    if game.game_date.year == season and (game.HOME == team or game.AWAY == team):
+                        for play in game.playlist:
+                            if play.OFFENSE == team:
+                                if play.RP == "R":
+                                    tempdata[0].append(play.EPA_regression_list[m])
+                                elif play.RP == "P":
+                                    tempdata[1].append(play.EPA_regression_list[m])
+                if len(tempdata[0]) > Globals.THRESHOLD and len(tempdata[1]) > Globals.THRESHOLD:
+                    Functions.imscatter(numpy.mean(tempdata[0]), numpy.mean(tempdata[1]), "Logos/" + team + " logo.png", zoom=0.015)
+        plt.xlabel("Rush EPA")
+        plt.ylabel("Pass EPA")
+        plt.title("Rush EPA vs Pass EPA\n" + type(model).__name__)
+        plt.grid()
+        plt.savefig(("Figures/EP/Rush EPA vs Pass EPA" + type(model).__name__), dpi=1000)
+        plt.close('all')
+        gc.collect()
+
+        for season in range(2002, 2019):
+            for team in Globals.CISTeams:
+                print(team, season)
+                tempdata = [[], []]
+                for game in Globals.gamelist:
+                    if game.game_date.year == season and (game.HOME == team or game.AWAY == team):
+                        for play in game.playlist:
+                            if play.DEFENSE == team:
+                                if play.RP == "R":
+                                    tempdata[0].append(play.EPA_regression_list[m])
+                                elif play.RP == "P":
+                                    tempdata[1].append(play.EPA_list[m])
+                if len(tempdata[0]) > Globals.THRESHOLD and len(tempdata[1]) > Globals.THRESHOLD:
+                    Functions.imscatter(numpy.mean(tempdata[0]), numpy(tempdata[0]), "Logos/" + team + " logo.png", zoom=0.015)
+        plt.xlabel("Defensive Rush EPA")
+        plt.ylabel("Defensive Pass EPA")
+        plt.title("Defensive Rush EPA vs Pass EPA\n" + type(model).__name__)
+        plt.grid()
+        plt.savefig(("Figures/EP/Defensive Rush EPA vs Pass EPA" + type(model).__name__), dpi=1000)
+        plt.close('all')
+        gc.collect()
+
+        for season in range(2002, 2019):
+            for conference in Globals.CISConferences:
+                print(conference, season)
+                tempdata = [[], []]
+                for game in Globals.gamelist:
+                    if game.game_date.year == season and game.CONFERENCE == conference:
+                        for play in game.playlist:
+                            if play.EPA_list:
+                                if play.RP == "R":
+                                    tempdata[0].append(play.EPA_regression_list[m])
+                                elif play.RP == "P":
+                                    tempdata[1].append(play.EPA_regression_list[m])
+                if len(tempdata[0]) > Globals.THRESHOLD and len(tempdata[1]) > Globals.THRESHOLD:
+                    Functions.imscatter(numpy.mean(tempdata[0]), numpy.mean(tempdata[1]), "Logos/" + conference + " logo.png", zoom=0.015)
+        plt.xlabel("Rush EPA")
+        plt.ylabel("Pass EPA")
+        plt.title("Conference Rush EPA vs Pass EPA\n" + type(model).__name__)
+        plt.grid()
+        plt.savefig(("Figures/EP/Conference Rush EPA vs Pass EPA" + type(model).__name__), dpi=1000)
+        plt.close('all')
+        gc.collect()
+    return None

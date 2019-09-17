@@ -377,8 +377,10 @@ class game():
                         play.score_play_is_off = True
                 elif play == self.playlist[-1]:  # end of game
                     play.score_play = "HALF"
+                    play.score_play_is_off == False
                 elif play.QUARTER == 2 and self.playlist[p+1].QUARTER == 3:  # halftime
                     play.score_play == "HALF"
+                    play.score_play_is_off == False
                 elif play.QUARTER == 4 and self.playlist[p+1].QUARTER == 5:  # OT
                     play.score_play = "HALF"
                     play.score_play_is_off == False
