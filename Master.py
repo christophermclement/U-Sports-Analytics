@@ -352,20 +352,15 @@ def redraw_plots():
         #EPClass.raw_EP_plots()
         #EPClass.EP_classification_plots()
         #EPClass.EP_regression_plots()
-        EPClass.teamseason()
+        EPClass.regression_teamseason_plots()
+        EPClass.raw_teamseason_plots()
         #WP.WP_correlation()
         #WP.WP_PLOTS()
         pass
     return None
 
 
-REPARSE_DATA = False
-for game in Globals.gamelist:
-    for play in game.playlist:
-        if play.DOWN == 0:
-            if play.YDLINE > 35:
-                if play.ODK == "FG":
-                    print(play.MULE, play.playdesc)
+REPARSE_DATA = True
 RECALCULATE_EP = True
 RECALCULATE_WP = False
 RECALCULATE_FG = False
@@ -373,9 +368,15 @@ DRAW_PLOTS = True
 
 
 reparse()
-recalc_ep()
 for game in Globals.gamelist:
     game.EPA_FN()
+    for p, play in enumerate(game.playlist):
+        if play.DOWN == 0:
+            if play.YDLINE > 35:
+                if play.ODK == "FG":
+                    print(play.MULE, play.DEFENSE, game.playlist[p - 1].playdesc)
+
+recalc_ep()
 #recalc_wp()
 #recalc_fg()
 redraw_plots()
