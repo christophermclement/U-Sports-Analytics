@@ -97,7 +97,7 @@ def P_EP():
                         PUNT_ARRAY[play.YDLINE].EP_ARRAY.append(numpy.float(Globals.score_values[play.score_play][1] * (1 if play.score_play_is_off else -1)))
                     else:
                         for n, nextPlay in enumerate(game.playlist[p + 1:]):
-                            PUNT_ARRAY[play.YDLINE].EP_ARRAY.append(numpy.float(EPClass.EP_ARRAY[nextPlay.DOWN][nextPlay.DISTANCE][nextPlay.YDLINE].EP[1] * (1 if nextPlay.OFFENSE == play.OFFENSE else -1)))
+                            PUNT_ARRAY[play.YDLINE].EP_ARRAY.append(numpy.float(EPClass.EP_ARRAY[nextPlay.DOWN][nextPlay.DISTANCE][nextPlay.YDLINE].EP[1] * (1 if nextPlay.defense_offense == play.defense_offense else -1)))
                             break
                     if play.puntGross:
                         PUNT_ARRAY[play.YDLINE].gross_array.append(play.puntGross)

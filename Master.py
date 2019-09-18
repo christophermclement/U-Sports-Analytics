@@ -23,12 +23,13 @@ import itertools
 import gc
 import os
 import random
+import cProfile
 
 def import_mule(csvmule, mule):
     '''
     Uses the csv library to bring in the 3 data csv mules
     '''
-    print("    importing mule", mule)
+    print("\timporting mule", mule, Functions.timestamp())
     for row in csvmule:
         # looking for new games
         if "vs." in row or any(" vs. " in x for x in row):
@@ -155,7 +156,8 @@ def parser():
     parses the games and plays by calling all the functions within the game and play options
     '''
     print("Parsing games and plays", Functions.timestamp())
-    for game in Globals.gamelist:
+    for g, game in enumerate(Globals.gamelist):
+            print("Parsing", g + 1, " of ", len(Globals.gamelist), "games", end='\r')
             game.game_calc()
             game.make_plays()
             for play in game.playlist:
@@ -171,10 +173,6 @@ def parser():
                 play.TACKLER_FN()
                 play.PASSER_FN()  # Dependent on RP
                 play.RECEIVER_FN()  # Dependent on RP
-            game.OffIsHome_FN()  # No dependencies
-            game.DEFENSE_FN()  # No dependencies
-            game.O_D_SCORE_FN()  # No dependencies
-            game.O_D_TO_FN()  # No dependencies
             game.O_WIN_FN()  # No dependencies
             game.TIME_FN()  # No dependencies
             game.SCORING_PLAY_FN()
@@ -198,13 +196,15 @@ def parser():
 def reparse():
     if REPARSE_DATA:
         print("importing data", Functions.timestamp())
+        '''
         with open("Data/CIS MULE 01.csv") as csvfile:
             import_mule(csv.reader(csvfile), 1)
         with open("Data/CIS MULE 02.csv") as csvfile:
             import_mule(csv.reader(csvfile), 2)
+        '''
         with open("Data/CIS MULE 03.csv") as csvfile:
             import_mule(csv.reader(csvfile), 3)
-        parser()
+        cProfile.run('parser()')
         P1DClass.P1D_calculate()
         EPClass.EP_COUNT()
         iterate_scores()
@@ -361,7 +361,7 @@ def redraw_plots():
 
 
 REPARSE_DATA = True
-RECALCULATE_EP = True
+RECALCULATE_EP = False
 RECALCULATE_WP = False
 RECALCULATE_FG = False
 DRAW_PLOTS = True
@@ -376,10 +376,10 @@ for game in Globals.gamelist:
                 if play.ODK == "FG":
                     print(play.MULE, play.DEFENSE, game.playlist[p - 1].playdesc)
 
-recalc_ep()
+#recalc_ep()
 #recalc_wp()
 #recalc_fg()
-redraw_plots()
+#redraw_plots()
 
 
 '''
@@ -395,6 +395,10 @@ the list of all unique passers and receivers.
 print("ALL DONE", Functions.timestamp())
 
 '''
+# TODO: Find out if numpy's 'out' parameter can be used to make things go faster
+
+# TODO: Find out if we can use numpy's 'where' parameter to speed things along
+
 # TODO: Add a kick returner function like passer, receiver, tackler
 
 # TODO: Add a rusher function like passer, receiver, tackler

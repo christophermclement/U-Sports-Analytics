@@ -16,7 +16,7 @@ class play():
     relating to the play that is not general to the game should be held here.
     '''
 
-    def __init__(self, row, hscore, ascore, off, qtr, ATO, HTO, clock, MULE):
+    def __init__(self, row, hscore, ascore, away_home, offishome, qtr, away_home_timeouts, clock, MULE):
 
         # Need to carry this information because it affects some of the parsing
         self.MULE = MULE
@@ -31,12 +31,11 @@ class play():
             self.SPOT = row[2]
             self.playdesc = row[3]
 
-        self.HOME_SCORE = hscore  # Carry over score from the parent game
-        self.AWAY_SCORE = ascore
-        self.OFFENSE = off  # Carry over the offense
-        self.HOME_LEAD = self.HOME_SCORE-self.AWAY_SCORE
-        self.AWAY_TO = ATO  # Carry over the TO situation
-        self.HOME_TO = HTO
+        self.offense_is_home = offishome
+        self.defense_offense = away_home if self.offense_is_home else away_home[::-1]
+        self.defense_offense_timeouts = away_home_timeouts if self.offense_is_home else away_home_timeouts[::-1]
+        self.defense_offense_score = [ascore, hscore] if self.offense_is_home else [hscore, ascore]
+        self.offense_lead = self.defense_offense_score[1] - self.defense_offense_score[0]
         self.CLOCK = clock  # If there's any clock info
         self.QUARTER = numpy.int(qtr)  # Carry over the qtr
 
@@ -48,10 +47,8 @@ class play():
         self.FPOS = None
         self.YDLINE = None
         self.DEFENSE = None
-        self.O_SCORE = None
-        self.D_SCORE = None
         self.ODK = None
-        self.O_WIN = None
+        self.offense_wins = None
         self.FG_RSLT = None
         self.GAIN = None
         self.TIME = None
@@ -61,7 +58,6 @@ class play():
 
         self.P1D_INPUT = None
         
-        #self.EP_INPUT = None
         self.next_score = None
         self.next_score_is_off = None
 
@@ -69,9 +65,6 @@ class play():
         self.TACKLER_TWO = None
         self.PASSER = None
         self.RECEIVER = None
-        self.OffIsHome = None
-        self.O_TO = None
-        self.D_TO = None
         
         self.puntGross = None
         self.puntNet = None
@@ -188,19 +181,11 @@ class play():
         '''
         try:
             if self.MULE == 1:  # String interpretation for each data format
-                self.FPOS = numpy.int(int(self.DD[-2:]))
-                if self.DD[-5:-2] == self.OFFENSE:  # on Off side flip sign
-                    self.FPOS = numpy.int(int((self.FPOS * (-1))))
+                self.FPOS = numpy.negative(int(self.DD[-2:]), dtype='int8') if self.DD[-5:-2] == self.defense_offense[1] else numpy.int(int(self.DD[-2:]))
             elif self.MULE == 2:
-                if self.SPOT[:3] == self.OFFENSE:  #2 has a column for FPOS
-                    self.FPOS = numpy.int((int(self.SPOT[-2:]) * (-1)))
-                else:
-                    self.FPOS = numpy.int(int(self.SPOT[-2:]))
+                self.FPOS = numpy.negative(int(self.SPOT[-2:]), dtype='int8') if self.SPOT[:3] == self.defense_offense[1] else numpy.int(int(self.SPOT[-2:]))
             elif self.MULE == 3:
-                if self.DD[0] == self.DD[-3]:
-                    self.FPOS = numpy.int(int(self.DD[-2:])*(-1))
-                else:
-                    self.FPOS = numpy.int(int(self.DD[-2:]))
+                self.FPOS = numpy.negative(int(self.DD[-2:]), dtype='int8') if self.DD[0] == self.DD[-3] else numpy.int(int(self.DD[-2:]))
             if self.FPOS == -55:  # at midfield we define as positive
                 self.FPOS = numpy.int(55)
         except Exception as err:  # Will catch any non-ints

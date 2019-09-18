@@ -132,15 +132,14 @@ def teamseason():
     
     for season in range(2002, 2019):
         for team in Globals.CISTeams:
-            tempdata = [[0, 0], [0, 0], [0, 0], [0, 0]]
+            tempdata = [[], [], [], []]
             for game in Globals.gamelist:
                 if game.game_date.year == season and (game.HOME == team or game.AWAY == team):
                     for play in game.playlist:
-                        if play.OFFENSE == team and play.DISTANCE == 10 and play.P1D_INPUT is not None:
-                            tempdata[play.DOWN][0] += 1
-                            tempdata[play.DOWN][1] += play.P1D_INPUT
-            if tempdata[1][0] > Globals.THRESHOLD and tempdata[2][0] > Globals.THRESHOLD / 2:
-                Functions.imscatter(tempdata[1][1] / tempdata[1][0], tempdata[2][1] / tempdata[2][0], "Logos/" + team + " logo.png", zoom=0.0075)
+                        if play.defense_offense[1] == team and play.DISTANCE == 10 and play.P1D_INPUT is not None:
+                            tempdata[play.DOWN].append(play.P1D_INPUT)
+            if len(tempdata[1]) > Globals.THRESHOLD and len(tempdata[2]) > Globals.THRESHOLD / 2:
+                Functions.imscatter(numpy.mean(tempdata[1]), numpy.mean(tempdata[2]), "Logos/" + team + " logo.png", zoom=0.0075)
     plt.xlabel("$P(1D)_{1^{st}&10}$")
     plt.ylabel("$P(1D)_{2^{nd}&10}$")
     plt.title("$P(1D) 1^{st}&10 vs. 2^{nd}&10$")
@@ -158,7 +157,7 @@ def teamseason():
             for game in Globals.gamelist:
                 if game.game_date.year == season and (game.HOME == team or game.AWAY == team):
                     for play in game.playlist:
-                        if play.DEFENSE == team:
+                        if play.defense_offense == team:
                             if play.DISTANCE == 10 and play.P1D_INPUT is not None:
                                 tempdata[play.DOWN][0] += 1
                                 tempdata[play.DOWN][1] += play.P1D_INPUT

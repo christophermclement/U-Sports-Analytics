@@ -36,11 +36,9 @@ class game():
         self.MULE = MULE  # Which data format is this from
         self.game_statement = statement  # The initial "vs. " statement
         # Grabs the Home and Away from the vs. statement
-        self.AWAY = self.game_statement[0:3]
-        self.HOME = self.game_statement[8:11]
+        self.away_home=[self.game_statement[0:3], self.game_statement[8:11]]
         self.H_WIN = None  # If the home team wins the game
-        self.H_FINAL = None  # Final score of the game
-        self.A_FINAL = None
+        self.away_home_final = None  # Final score of the game
         self.LEAGUE = None  # Always "U Sports", but exists for future compatibility
         self.CONFERENCE = None  # The conference in which the game was played
         self.game_date = None  # A datetime object for when the game was played
@@ -90,13 +88,13 @@ class game():
             RSEQ = ["SHE", "MCG", "CON", "MON", "LAV"]
             AUS = ["SMU", "SFX", "MTA", "ACA", "BIS"]
         # If both are in the same conf we assign that conf, otherwise non-con
-        if self.HOME in CWUAA and self.AWAY in CWUAA:
+        if all(team in CWUAA for team in self.away_home):
             self.CONFERENCE = "CWUAA"
-        elif self.HOME in OUA and self.AWAY in OUA:
+        elif all(team in OUA for team in self.away_home):
             self.CONFERENCE = "OUA"
-        elif self.HOME in RSEQ and self.AWAY in RSEQ:
+        elif all(team in RSEQ for team in self.away_home):
             self.CONFERENCE = "RSEQ"
-        elif self.HOME in AUS and self.AWAY in AUS:
+        elif all(team in AUS for team in self.away_home):
             self.CONFERENCE = "AUS"
         else:
             self.CONFERENCE = "NONCON"
@@ -110,12 +108,12 @@ class game():
         This gets a bit messy because we're handling a fair number of
         attributes but it actually does seem like the tidiest way to handle it.
         We could maybe refactor it but it would be even harder to read.
+        # TODO: Refactor this into several sub-methods
         '''
         quarter = 1
         homescore = 0
         awayscore = 0
-        HTO = 2
-        ATO = 2
+        away_home_timeouts = [2, 2]
         clock = "15:00"
         off = []  # No team is on offense until one is assigned
 
@@ -128,8 +126,7 @@ class game():
             elif row[0] == "3rd":
                 quarter = 3
                 clock = "15:00"
-                HTO = 2
-                ATO = 2
+                away_home_timeouts = [2, 2]
             elif row[0] == "4th":
                 quarter = 4
                 clock = "15:00"
@@ -146,54 +143,41 @@ class game():
                 if len(row[0]) == 3:
                     if row[0] not in ["1st", "2nd", "3rd", "4th"]:
                         off = row[0]
-            if off != self.HOME and off != self.AWAY:
+            if off not in self.away_home:
                 print("POSSESSION ERROR", self.MULE, self.game_statement, row)
 
-            try:
+            try:  # Handling timeouts
                 if self.MULE == 1 or self.MULE == 3:
                     if "TIMEOUT" in row[1]:  # Checking for timeout statements
                         TO = row[1].find("TIMEOUT")
                         TOTEAM = row[1][(TO + 8):(TO + 11)]
-                        if TOTEAM == self.HOME:
-                            HTO = HTO - 1
-                        elif TOTEAM == self.AWAY:
-                            ATO = ATO - 1
-                        # If the team calling a TO isn't properly interpreted
-                        else:
-                            print("TIMEOUT ERROR", self.MULE, row, "TO",
-                                  TOTEAM, "HOME", self.HOME, "AWAY", self.AWAY)
+                        away_home_timeouts[self.away_home.index(TOTEAM)] -= 1
                 elif self.MULE == 2:
                     if "TIMEOUT" in row[3]:
-                        if row[3][row[3].find("TIMEOUT") + 8:row[3].
-                                  find("TIMEOUT") + 11] == self.HOME:
-                            HTO = HTO - 1
-                        elif row[3][row[3].find("TIMEOUT") + 8:row[3].
-                                    find("TIMEOUT")+11] == self.AWAY:
-                            ATO = ATO - 1
-                        # If the team calling TO isn't properly interpreted
-                        else:
-                            print("TIMEOUT ERROR", self.MULE, row)
-            except Exception:
-                print("TIMEOUT EXCEPTION", self.MULE, self.game_statement,
-                      row[0], row[1])
+                        TOTEAM = row[3][row[3].index("TIMEOUT") + 8:row[3].index("TIMEOUT") + 11]
+                        away_home_timeouts[self.away_home.index(TOTEAM)] -= 1
+            except Exception as err:
+                print("TIMEOUT ERROR", self.MULE, self.game_statement, row)
+                print(err)
 
             try:
                 if self.MULE == 1 or self.MULE == 3:  # find score statements
                     if len(row[1]) > 11 and len(row[1]) < 15:
                         if row[1][3] == " ":
-                            if row[1][0:3] == self.AWAY:
+                            if row[1][0:3] == self.away_home[0]:
                                 awayscore = int(row[1][4:row[1].find(",")].
                                                 lstrip(" "))
                                 homescore = int(row[1][-2:].lstrip(" "))
                 elif self.MULE == 2:
                     if len(row[3]) > 11 and len(row[3]) < 15:
                         if row[3][3] == " ":
-                            if row[3][0:3] == self.AWAY:
-                                awayscore = int(row[3][4:row[3].find(",")].
+                            if row[3][0:3] == self.away_home[0]:
+                                awayscore = int(row[3][4:row[3].index(",")].
                                                 lstrip(" "))
                                 homescore = int(row[3][-2:].lstrip(" "))
-            except Exception:
+            except Exception as err:
                 print("SCORE ERROR", self.MULE, row, awayscore, homescore)
+                print(err)
 
             # identify clock statemenrs
             try:
@@ -210,79 +194,28 @@ class game():
                 # TODO: Why is this in the clock error try/exception???
                 if self.MULE == 1:
                     if any(x in row[1] for x in playwords):
-                        self.playlist.append(PlayClass.play(row, homescore,
-                                             awayscore, off, quarter, ATO,
-                                             HTO, clock, self.MULE))
+                        self.playlist.append(PlayClass.play(row, homescore, awayscore, self.away_home,
+                                                            off == self.away_home[1],
+                                                            quarter, away_home_timeouts, clock, self.MULE))
                         clock = None
                 elif self.MULE == 2:
                     if any(x in row[3] for x in playwords):
-                        self.playlist.append(PlayClass.play(row, homescore,
-                                             awayscore, off, quarter, ATO, HTO,
-                                             clock, self.MULE))
+                        self.playlist.append(PlayClass.play(row, homescore, awayscore, self.away_home,
+                                                            off == self.away_home[1],
+                                                            quarter, away_home_timeouts, clock, self.MULE))
                         clock = None
                 elif self.MULE == 3:
                     if any(x in row[1] for x in playwords):
-                        self.playlist.append(PlayClass.play(row, homescore,
-                                             awayscore, off, quarter, ATO, HTO,
-                                             clock, self.MULE))
+                        self.playlist.append(PlayClass.play(row, homescore, awayscore, self.away_home,
+                                                            off == self.away_home[1],
+                                                            quarter, away_home_timeouts, clock, self.MULE))
                         clock = None
             except Exception as err:
                 print("CLOCK ERROR", self.MULE, row)
                 print(err)
 
-        if homescore > awayscore:  # Identifying the winning team
-            self.H_WIN = True
-        elif homescore < awayscore:
-            self.H_WIN = False
-        else:  # error-checking for ties
-            print("H_WIN ERROR", self.MULE, self.game_statement,
-                  awayscore, homescore)
-        return None
-
-    def DEFENSE_FN(self):
-        '''
-        Match the offense to the home or away team and set the D to the other for each play object in the playlist
-        '''
-        
-        for play in self.playlist:
-            play.DEFENSE = self.AWAY if play.OffIsHome else self.HOME
-            '''
-            TODO: If the above works then delete this
-            if play.OFFENSE == self.HOME:
-                play.DEFENSE = self.AWAY
-            elif play.OFFENSE == self.AWAY:
-                play.DEFENSE = self.HOME
-            else:  # If it's not home and it's not away something is wrong
-                print("DEFENSE ERROR", self.MULE, play.playdesc)
-            '''
-        return None
-
-    def O_D_SCORE_FN(self):
-        '''
-        Match O to H or A and set scores accordingly for plays in playlist
-        TODO: Could we maybe make this into a length 2 list? Same for Home/Away, Off/Def, HA Score, timeouts? If so we can actually just compare the lists and then use reverse if offIsHome is False
-        '''
-        for play in self.playlist:
-            if play.OffIsHome:
-                play.O_SCORE = play.HOME_SCORE
-                play.D_SCORE = play.AWAY_SCORE
-            else:
-                play.O_SCORE = play.AWAY_SCORE
-                play.D_SCORE = play.HOME_SCORE
-            play.O_LEAD = play.O_SCORE - play.D_SCORE
-        return None
-
-    def O_D_TO_FN(self):
-        for play in self.playlist:
-            # Match O to home or away and set timeouts accordingly
-            if play.OFFENSE == self.HOME:
-                play.O_TO = play.HOME_TO
-                play.D_TO = play.AWAY_TO
-            elif play.OFFENSE == self.AWAY:
-                play.O_TO = play.AWAY_TO
-                play.D_TO = play.HOME_TO
-            else:
-                print("O/D TO ERROR", self.MULE, play.playdesc)
+        self.away_home_final = [awayscore, homescore]
+        self.home_wins = True if homescore > awayscore else False
         return None
 
     def O_WIN_FN(self):
@@ -291,16 +224,7 @@ class game():
         '''
         for play in self.playlist:
             # Match offense to home or away and set the win accordingly
-            play.O_WIN = not(play.OffIsHome ^ self.H_WIN)
-            '''
-            TODO: If the above works then get rid of this
-            if play.offIsHome:
-                play.O_WIN = self.H_WIN
-            else:
-                play.O_WIN = not(self.H_WIN)
-            else:
-                print("O WIN ERROR", self.MULE, x.playdesc)
-            '''
+            play.offense_wins = not(play.offense_is_home ^ self.home_wins)
         return None
 
     def TIME_FN(self):
@@ -360,21 +284,11 @@ class game():
                 elif "TOUCHDOWN" in play.playdesc:
                     play.score_play = "TD"
                     for nextPlay in self.playlist[p + 1:]:
-                        if any(x in nextPlay.playdesc for x in ["attempt", "kickoff"]):
-                            if nextPlay.OFFENSE == play.OFFENSE:
-                                play.score_play_is_off = True
-                            elif nextPlay.DEFENSE == play.OFFENSE:
-                                play.score_play_is_off = False
+                        if any(x in nextPlay.playdesc for x in ["attempt", "kickoff"]): # Usu. when there's a score statement before PAT
+                            play.score_play_is_off = True if nextPlay.defense_offense == play.defense_offense else False
                             break
-                        # Usu. when there's a score statement before PAT
-                        elif nextPlay.O_SCORE > play.O_SCORE:
-                            play.score_play_is_off = True
-                            break
-                        elif nextPlay.D_SCORE > play.D_SCORE:
-                            play.score_play_is_off = False
-                            break
-                    else:  # If we reach the end of the game w/ no PAT
-                        play.score_play_is_off = True
+                    else:
+                        play.score_play_is_off = True if nextPlay.defense_offense_score[0] > play.defense_offense_score[0] else False
                 elif play == self.playlist[-1]:  # end of game
                     play.score_play = "HALF"
                     play.score_play_is_off == False
@@ -399,25 +313,19 @@ class game():
                 if play.DOWN > 0:  # We don't care about 2-pt conversions
                     # If the O scores a TD then it's obviously good
                     if play.score_play == "TD":
-                        if play.score_play_is_off:
-                            play.P1D_INPUT = True
-                        else:
-                            play.P1D_INPUT = False
+                        play.P1D_INPUT = play.score_play_is_off
                     elif play.next_score == "SAFETY" :  # Safeties are also bad, and a D-SAFETY certainly means some kind of change of possession
                             play.P1D_INPUT = False
                     else:
                         # Now we loop through the rest of the plays
                         for nextPlay in self.playlist[self.playlist.index(play) + 1:]:
                             # If there's a change of possession it's a fail
-                            if nextPlay.OFFENSE != play.OFFENSE:
+                            if nextPlay.defense_offense != play.defense_offense:
                                 play.P1D_INPUT = False
                                 break
                             # If offense scores a touchdown that's good
                             elif nextPlay.next_score == "TD":
-                                if nextPlay.next_score_is_off:
-                                    play.P1D_INPUT = True   
-                                else:
-                                    play.P1D_INPUT = False
+                                play.P1D_INPUT = nextPlay.next_score_is_off
                                 break
                                 # If there's a non-OD play it implies a failure
                             elif nextPlay.next_score == "HALF":
@@ -454,18 +362,10 @@ class game():
                     if play.next_score == "HALF":
                         play.next_score_is_off = False
                     else:
-                        play.next_score_is_off = not(play.OffIsHome ^ nextPlay.OffIsHome) * nextPlay.score_play_is_off
+                        play.next_score_is_off = not(play.offense_is_home ^ nextPlay.offense_is_home) * nextPlay.score_play_is_off
                     break
             else:
                 print("EP INPUT ERROR", play.MULE, play.DOWN, play.DISTANCE, play.playdesc)
-        return None
-
-    def OffIsHome_FN(self):
-        '''
-        returns True if the current offense is the home team
-        '''
-        for play in self.playlist:
-            play.OffIsHome = (play.OFFENSE == self.HOME)
         return None
 
     def realTime_FN(self):
@@ -593,9 +493,9 @@ class game():
                                 play.puntNet == play.YDLINE
                             else:
                                 play.puntNet == 110 - play.YDLINE
-                        elif self.playlist[p + 1].OFFENSE == play.OFFENSE:
+                        elif self.playlist[p + 1].defense_offense == play.defense_offense:
                             play.puntNet = play.YDLINE - self.playlist[p + 1].YDLINE
-                        elif self.playlist[p + 1].OFFENSE == play.DEFENSE:
+                        else:
                             play.puntNet = play.YDLINE - (110 - self.playlist[p + 1].YDLINE)
         except Exception as err:
             print("puntNet Error", play.MULE, play.playdesc)
@@ -621,9 +521,9 @@ class game():
                             play.KONet = play.YDLINE
                         else:
                             play.KONet = 110 - play.YDLINE
-                    elif self.playlist[p + 1].OFFENSE == play.OFFENSE:
+                    elif self.playlist[p + 1].defense_offense == play.defense_offense:
                         play.KONet = play.YDLINE - self.playlist[p + 1].YDLINE
-                    elif self.playlist[p + 1].OFFENSE == play.DEFENSE:
+                    else:
                         play.KONet = play.YDLINE - (110 - self.playlist[p + 1].YDLINE)
         except Exception as err:
             print("KONet Error", self.MULE, play.playdesc)
@@ -652,13 +552,13 @@ class game():
                                                                     play.EP_classification_values)
                     play.EPA_regression_list = numpy.subtract(Globals.score_values[play.score_play][1] * (1 if play.score_play_is_off else -1), play.EP_regression_list)
                 else:  # Almost every other condition
-                    play.raw_EPA = (self.playlist[p + 1].raw_EP[1] * (1 if play.OFFENSE == self.playlist[p+1].OFFENSE else -1) - play.raw_EP[1])
+                    play.raw_EPA = (self.playlist[p + 1].raw_EP[1] * (1 if play.defense_offense == self.playlist[p+1].defense_offense else -1) - play.raw_EP[1])
                     play.EPA_regression_list = numpy.subtract(self.playlist[p + 1].EP_regression_list 
-                                                              if play.OFFENSE == self.playlist[p+1].OFFENSE 
+                                                              if play.defense_offense == self.playlist[p+1].defense_offense 
                                                               else numpy.negative(self.playlist[p + 1].EP_regression_list), 
                                                               play.EP_regression_list)
                     play.EPA_classification_values = numpy.subtract(self.playlist[p + 1].EP_classification_values 
-                                                                    if play.OFFENSE == self.playlist[p+1].OFFENSE 
+                                                                    if play.defense_offense == self.playlist[p+1].defense_offense 
                                                                     else numpy.negative(self.playlist[p + 1].EP_classification_values),
                                                                     play.EP_classification_values)
         except Exception as err:
@@ -675,12 +575,12 @@ class game():
         try:
             for p, play in enumerate(self.playlist):
                 if play == self.playlist[-1]:  # End of game
-                    if play.O_WIN:
+                    if play.offense_wins:
                         play.WPA_list = [1 - x for x in play.WP_list]
                     else:
                         play.WPA_list = [-x for x in play.WP_list]
                 else:
-                    if play.OFFENSE == self.playlist[p + 1].OFFENSE:
+                    if play.defense_offense == self.playlist[p + 1].defense_offense:
                         play.WPA_list = list(numpy.subtract(self.playlist[p + 1].WP_list, play.WP_list))
                     else:
                         play.WPA_list = list(1 - numpy.subtract(self.playlist[p + 1].WP_list, play.WP_list))

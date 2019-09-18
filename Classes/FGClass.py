@@ -292,7 +292,7 @@ def FG_EP():
                     else:
                         for n, nextPlay in enumerate(game.playlist[p + 1:]):
                             if nextPlay.ODK == "OD":
-                                FG_ARRAY[play.YDLINE].EP_ARRAY.append(numpy.float(EPClass.EP_ARRAY[nextPlay.DOWN][nextPlay.DISTANCE][nextPlay.YDLINE].EP[1] * (1 if nextPlay.OFFENSE == play.OFFENSE else -1)))
+                                FG_ARRAY[play.YDLINE].EP_ARRAY.append(numpy.float(EPClass.EP_ARRAY[nextPlay.DOWN][nextPlay.DISTANCE][nextPlay.YDLINE].EP[1] * (1 if nextPlay.defense_offense == play.defense_offense else -1)))
                                 break
     except Exception as err:
         print("FG EP ERROR", play.MULE, play.playdesc)
