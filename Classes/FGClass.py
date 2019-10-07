@@ -38,7 +38,7 @@ class FG():
                               "MISSED" : numpy.array([None, None, None], dtype='float')}
 
         self.EP = numpy.array([None, None, None], dtype='float')
-        self.BOOTSTRAP = Globals.DummyArray
+        self.EP_bootstrap = Globals.DummyArray
         self.EP_ARRAY = []
 
     def calculate(self):
@@ -65,7 +65,7 @@ class FG():
                         "MISSED" : numpy.array([None, None, None], dtype='float')}
 
         self.EP = numpy.array([None, None, None])
-        self.BOOTSTRAP = Globals.DummyArray
+        self.EP_bootstrap = Globals.DummyArray
         self.EP_ARRAY = []
         return None
 
@@ -77,11 +77,11 @@ class FG():
             for outcome in self.probabilities:
                 self.probabilities[outcome][2] = Functions.BinomHigh(self.counts[outcome], sum(self.counts.values()), Globals.CONFIDENCE)
                 self.probabilities[outcome][0] = Functions.BinomLow(self.counts[outcome], sum(self.counts.values()), Globals.CONFIDENCE)
-            self.BOOTSTRAP = Functions.bootstrap(self.EP_ARRAY)
+            self.EP_bootstrap = Functions.bootstrap(self.EP_ARRAY)
 
-            self.EP = numpy.array([self.BOOTSTRAP[int(Globals.BOOTSTRAP_SIZE * Globals.CONFIDENCE - 1)],
-                                  numpy.mean(self.EP_ARRAY),
-                                  self.BOOTSTRAP[int(Globals.BOOTSTRAP_SIZE * (1 - Globals.CONFIDENCE))]])
+            self.EP = numpy.array([self.EP_bootstrap[int(Globals.BOOTSTRAP_SIZE * Globals.CONFIDENCE - 1)],
+                                   numpy.mean(self.EP_ARRAY),
+                                   self.EP_bootstrap[int(Globals.BOOTSTRAP_SIZE * (1 - Globals.CONFIDENCE))]])
         return None
 
 
@@ -180,7 +180,7 @@ def FG_regression():
                     # TODO: Better deal with the FGs missing wind or temp, better nan handling with pandas
                     if play.headwind is not None and play.crosswind is not None and play.METAR.temp is not None:
                         if play.score_play:
-                            EP_result = Globals.score_values[play.score_play][1] * (1 if play.score_play_is_off else -1)
+                            EP_result = Globals.score_values[play.score_play].EP[1] * (1 if play.score_play_is_off else -1)
                         else:
                             EP_result = game.playlist[p+1].raw_EP[1]
                         FG_data.append([play.YDLINE,
@@ -248,7 +248,7 @@ def FG_EP():
                 if play.ODK == "FG" and play.DOWN:  # avoid PATs
                     FG_ARRAY[play.YDLINE].counts[play.FG_RSLT] += 1
                     if play.score_play:
-                        FG_ARRAY[play.YDLINE].EP_ARRAY.append(numpy.float(Globals.score_values[play.score_play][1] * (1 if play.score_play_is_off else -1)))
+                        FG_ARRAY[play.YDLINE].EP_ARRAY.append(numpy.float(Globals.score_values[play.score_play].EP[1] * (1 if play.score_play_is_off else -1)))
                     else:
                         for n, nextPlay in enumerate(game.playlist[p + 1:]):
                             if nextPlay.ODK == "OD":

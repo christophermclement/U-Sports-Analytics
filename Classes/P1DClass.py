@@ -32,8 +32,8 @@ class P1D():
         return None
 
 
-P1D_ARRAY = [[P1D(down, distance) for distance in range(Globals.DISTANCE_LIMIT)] for down in range(4)]
-P1D_GOAL_ARRAY = [[P1D(down, distance) for distance in range(Globals.DISTANCE_LIMIT)] for down in range(4)]
+P1D_ARRAY = [[P1D(down, distance) for distance in range(110)] for down in range(4)]
+P1D_GOAL_ARRAY = [[P1D(down, distance) for distance in range(110)] for down in range(4)]
 
 
 def P1D_calculate():

@@ -70,7 +70,7 @@ def WP_classification():
     WP_data_x = pandas.DataFrame(WP_data_x,
                                  columns=["Down", "Distance", "Ydline", "Time",
                                           "Defense Score", "Offense Score", "Offense Lead",
-                                          "Defense TO", "Offense TO", "OffIsHome"])  # Convert to dataframe to play nice with sklearn
+                                          "Defense TO", "Offense TO", "offense_is_home"])  # Convert to dataframe to play nice with sklearn
     WP_data_y = pandas.DataFrame(WP_data_y, columns=["Offense Wins"])
 
     for model in WP_classification_models:
@@ -85,12 +85,8 @@ def WP_classification():
     outputlist = Functions.fit_models(WP_classification_models, WP_data_x, WP_data_y, 2)
     
     #Manipulating outputlist to get just P(win) and flip the order so we can pop from the end of the list
-    outputlist = numpy.flip(numpy.take(outputlist, 1, axis=2), axis=1)
-    outputlist = outputlist.tolist()
-    for game in Globals.gamelist:
-        for play in game.playlist:
-            play.WP_list = [x.pop() for x in outputlist]
-
+    outputlist = numpy.flip(numpy.take(outputlist, 1, axis=2), axis=1).tolist()
+    Functions.assign_from_list(outputlist, "WP_list")
     Functions.printFeatures(WP_classification_models)  # Just prints out coefficients and such
 
     # This just tells each game to calculate the WPA of each play by taking the difference between each play and the next.
@@ -108,7 +104,7 @@ def WP_correlation():
     data = []
     for game in Globals.gamelist:
         for play in game.playlist:
-            data.append([play.WP_list, [play.O_WIN, play.QUARTER, play.DOWN, play.OffIsHome]])
+            data.append([play.WP_list, [play.O_WIN, play.QUARTER, play.DOWN, play.offense_is_home]])
 
     fig, ax = plt.subplots(figsize=(fig.nrows*5, fig.ncols*5))
     for m, model in enumerate(WP_classification_models):
@@ -163,7 +159,7 @@ def WP_PLOTS():
                     2,
                     True] for time in range(1801)])]
             plt.plot(xdata, label=lead)
-        plt.title("WP by Lead and Time,\n1st & 10, -35, Home Score = 14, OffIsHome = True\n" + type(model).__name__)
+        plt.title("WP by Lead and Time,\n1st & 10, -35, Home Score = 14, offense_is_home = True\n" + type(model).__name__)
         plt.xlabel("Time (s)")
         plt.ylabel("WP")
         plt.axis([0, 1800, 0, 1])

@@ -15,6 +15,8 @@ import sklearn.linear_model
 import sklearn.neighbors
 import sklearn.ensemble
 import sklearn.neural_network
+import sklearn.svm
+import sklearn.kernel_ridge
 import scipy.optimize
 from sklearn.model_selection import KFold
 import csv
@@ -77,7 +79,7 @@ class EP():
         '''
         if sum(self.Score_Counts.values()):
             self.BOOTSTRAP = Functions.bootstrap(
-                             [y for x in [self.Score_Counts[x] * [Globals.score_values[x[0]][1] * (1 if x[1] else -1)] for x in self.Score_Counts] for y in x])
+                             [y for x in [self.Score_Counts[x] * [Globals.score_values[x[0]].EP[1] * (1 if x[1] else -1)] for x in self.Score_Counts] for y in x])
 
             self.EP[0] = self.BOOTSTRAP[int(Globals.BOOTSTRAP_SIZE * Globals.CONFIDENCE - 1)]
             self.EP[2] = self.BOOTSTRAP[int(Globals.BOOTSTRAP_SIZE * (1 - Globals.CONFIDENCE))]
@@ -88,10 +90,10 @@ class EP():
         Calculates Raw EP value
         '''
         if sum(self.Score_Counts.values()):
-            self.EP[1] = sum([(self.Score_Counts[score] * Globals.score_values[score[0]][1] * (1 if score[1] else -1)) for score in self.Score_Counts]) / sum(self.Score_Counts.values())
+            self.EP[1] = sum([(self.Score_Counts[score] * Globals.score_values[score[0]].EP[1] * (1 if score[1] else -1)) for score in self.Score_Counts]) / sum(self.Score_Counts.values())
         return None
 
-EP_ARRAY = [[[EP(down, distance, yardline) for yardline in range(110)] for distance in range(110)] for down in range(4)]
+EP_ARRAY = [[[EP(down, distance, yardline) for yardline in range(111)] for distance in range(111)] for down in range(4)]
 
 EP_classification_models = []
 #EP_classification_models.append(sklearn.linear_model.LogisticRegression(multi_class='multinomial', solver='saga', max_iter=10000))
@@ -101,12 +103,17 @@ EP_classification_models.append(sklearn.neural_network.MLPClassifier(max_iter=10
 EP_classification_models.append(sklearn.ensemble.GradientBoostingClassifier(n_estimators=Globals.forest_trees, warm_start=True))
 
 EP_regression_models = []
-EP_regression_models.append(sklearn.neighbors.KNeighborsRegressor())
+#EP_regression_models.append(sklearn.neighbors.KNeighborsRegressor())
 #EP_regression_models.append(sklearn.ensemble.RandomForestRegressor(n_estimators=Globals.forest_trees, n_jobs=-1))
 EP_regression_models.append(sklearn.neural_network.MLPRegressor(max_iter=1000, hidden_layer_sizes=Globals.neural_network, warm_start=True))
-EP_regression_models.append(sklearn.ensemble.GradientBoostingRegressor(n_estimators=Globals.forest_trees, warm_start=True))
-
-
+#EP_regression_models.append(sklearn.ensemble.GradientBoostingRegressor(n_estimators=Globals.forest_trees, warm_start=True))
+EP_regression_models.append(sklearn.linear_model.SGDRegressor(warm_start=True))
+EP_regression_models.append(sklearn.linear_model.Lasso(warm_start=True))
+#EP_regression_models.append(sklearn.linear_model.ElasticNet(warm_start=True))
+#EP_regression_models.append(sklearn.linear_model.Ridge())
+EP_regression_models.append(sklearn.ensemble.AdaBoostRegressor())
+#EP_regression_models.append(sklearn.kernel_ridge.KernelRidge())
+EP_regression_models.append(sklearn.linear_model.BayesianRidge())
 
 def EP_regression():
     '''
@@ -121,9 +128,8 @@ def EP_regression():
 
     for game in Globals.gamelist:
         for play in game.playlist:
-            EP_data.append([play.DOWN, play.DISTANCE, play.YDLINE, Globals.score_values[play.next_score][1] * (1 if play.next_score_is_off else -1)])
+            EP_data.append([play.DOWN, play.DISTANCE, play.YDLINE, Globals.score_values[play.next_score].EP[1] * (1 if play.next_score_is_off else -1)])
             play.EP_regression_list = []
-            
 
     for down in EP_ARRAY:
         for distance in down:
@@ -140,6 +146,7 @@ def EP_regression():
     outputlist = Functions.fit_models(EP_regression_models, EP_data_x, EP_data_y, 1)
     outputlist = numpy.flip(outputlist, axis=1).tolist()
 
+    # TODO: Should we use Functions.assign_from_list to make this tidier?
     for game in Globals.gamelist:
         for play in game.playlist:
             play.EP_regression_list = [model.pop() for model in outputlist]
@@ -152,16 +159,19 @@ def EP_regression():
             for ydline in distance:
                 if ydline.EP_regression_list:
                     ydline.EP_regression_list = numpy.mean(numpy.array(ydline.EP_regression_list), axis = 0)
-                elif ydline.DISTANCE > ydline.YDLINE or ydline.YDLINE - ydline.DISTANCE < 100:
+                elif ydline.DISTANCE > ydline.YDLINE or ydline.YDLINE - ydline.DISTANCE > 100:
                     ydline.EP_regression_list = numpy.full(len(EP_regression_models), numpy.nan)
                 else:
                     EP_data_x.append([ydline.DOWN, ydline.DISTANCE, ydline.YDLINE])
+    EP_data_x = numpy.array(EP_data_x)
+    print(EP_data_x)
     outputlist = numpy.flip(numpy.array([model.predict(EP_data_x).tolist() for model in EP_regression_models]), axis=1).tolist()
+    print(outputlist)
     for down in EP_ARRAY:
         for distance in down:
-            for ydline in distance:
-                if ydline.EP_regression_list == []:
-                    ydline.EP_regression_list = [model.pop() for model in outputlist]
+            for yardline in distance:
+                if yardline.EP_regression_list == []:
+                    yardline.EP_regression_list = [model.pop() for model in outputlist]
 
     print("\tArray populated", Functions.timestamp())
 
@@ -205,7 +215,7 @@ def EP_classification():
     for game in Globals.gamelist:
         for play in game.playlist:
             play.EP_classification_list = [x.pop() for x in outputlist]
-            play.EP_classification_values = [sum([prob * Globals.score_values[score[0]][1] * (1 if score[1] else -1) for prob, score in zip(model, Globals.alpha_scores)]) for model in play.EP_classification_list]
+            play.EP_classification_values = [sum([prob * Globals.score_values[score[0]].EP[1] * (1 if score[1] else -1) for prob, score in zip(model, Globals.alpha_scores)]) for model in play.EP_classification_list]
             EP_ARRAY[play.DOWN][play.DISTANCE][play.YDLINE].EP_classification_list.append(play.EP_classification_list)
 
     EP_data_x = []
@@ -219,7 +229,7 @@ def EP_classification():
                     ydline.EP_classification_list = numpy.full((len(EP_classification_models), 9), numpy.nan)
                 else:
                     EP_data_x.append([ydline.DOWN, ydline.DISTANCE, ydline.YDLINE])
-                ydline.EP_classification_values = [sum([prob * Globals.score_values[score[0]][1] * (1 if score[1] else -1) for prob, score in zip(model, Globals.alpha_scores)]) for model in play.EP_classification_list]
+                ydline.EP_classification_values = [sum([prob * Globals.score_values[score[0]].EP[1] * (1 if score[1] else -1) for prob, score in zip(model, Globals.alpha_scores)]) for model in play.EP_classification_list]
     outputlist = numpy.flip(numpy.array([model.predict_proba(EP_data_x).tolist() for model in EP_classification_models]), axis=1).tolist()
     for down in EP_ARRAY:
         for distance in down:
@@ -325,8 +335,8 @@ def raw_EP_plots():
 
         fig, ax = plt.subplots(1, 1, figsize = (5, 3))
         mappable = ax.imshow(heatmap_data, origin='lower', aspect=2, cmap='viridis',
-                   vmin=Globals.score_values["TD"][1] * (-1),
-                   vmax=Globals.score_values["TD"][1])
+                   vmin=Globals.score_values["TD"].EP[1] * (-1),
+                   vmax=Globals.score_values["TD"].EP[1])
         fig.suptitle("EP for " + Functions.ordinals(down)
                   + " Down by Distance and Yardline,\nRaw Data")
         ax.set(xlabel="Yardline", ylabel="Distance")
@@ -352,7 +362,7 @@ def EP_regression_plots():
     
         for YDLINE in range(1, 10):
             ydata.append(EP_ARRAY[1][YDLINE][YDLINE].EP[1])
-        for YDLINE in EP_ARRAY[1][10][10:]:
+        for YDLINE in EP_ARRAY[1][10][10:110]:
             ydata.append(YDLINE.EP_regression_list[m])
         xdata = numpy.array(xdata)
         ydata = numpy.array(ydata)
@@ -378,8 +388,8 @@ def EP_regression_plots():
             heatmap_data = numpy.array([[yardline.EP_regression_list[m] for yardline in distance] for distance in EP_ARRAY[down]])
             fig, ax = plt.subplots(1, 1, figsize = (5, 3))
             mappable = ax.imshow(heatmap_data, origin='lower', aspect=2, cmap='viridis',
-                       vmin=Globals.score_values["TD"][1] * (-1),
-                       vmax=Globals.score_values["TD"][1])
+                       vmin=Globals.score_values["TD"].EP[1] * (-1),
+                       vmax=Globals.score_values["TD"].EP[1])
             fig.suptitle("EP for " + Functions.ordinals(down)
                       + " Down by Distance and Yardline,\n" + type(model).__name__)
             ax.set(xlabel="Yardline", ylabel="Distance")
@@ -430,8 +440,8 @@ def EP_classification_plots():
             heatmap_data = numpy.array([[yardline.EP_classification_values[m] for yardline in distance] for distance in EP_ARRAY[down]])
             fig, ax = plt.subplots(1, 1, figsize = (5, 3))
             mappable = ax.imshow(heatmap_data, origin='lower', aspect=2, cmap='viridis',
-                       vmin=Globals.score_values["TD"][1] * (-1),
-                       vmax=Globals.score_values["TD"][1])
+                       vmin=Globals.score_values["TD"].EP[1] * (-1),
+                       vmax=Globals.score_values["TD"].EP[1])
             fig.suptitle("EP for " + Functions.ordinals(down) + " Down by Distance and Yardline,\n" + type(model).__name__)
             ax.set(xlabel="Yardline", ylabel="Distance")
             ax.grid()
@@ -454,8 +464,8 @@ def EP_regression_correlation():
         for play in game.playlist:
             for s, score in enumerate(Globals.alpha_scores):
                 data.append([play.EP_regression_list, 
-                             [(Globals.score_values[play.next_score][1] * (1 if play.next_score_is_off else -1)), 
-                              play.QUARTER, play.DOWN, play.OffIsHome]])
+                             [(Globals.score_values[play.next_score].EP[1] * (1 if play.next_score_is_off else -1)), 
+                              play.QUARTER, play.DOWN, play.offense_is_home]])
     
     print("\tBuilding graphs by model", Functions.timestamp())
     
@@ -517,7 +527,7 @@ def EP_classification_correlation():
             for s, score in enumerate(Globals.alpha_scores):
                 data.append([[x[s] for x in play.EP_classification_list], 
                              [(True if (play.next_score == score[0] and play.next_score_is_off == score[1]) else False), 
-                              play.QUARTER, play.DOWN, play.OffIsHome]])
+                              play.QUARTER, play.DOWN, play.offense_is_home]])
     
     print("\tBuilding graphs by model", Functions.timestamp())
     for m, model in enumerate(EP_classification_models):
@@ -575,7 +585,7 @@ def EP_classification_values_correlation():
     data=[]
     for game in Globals.gamelist:
         for play in game.playlist:
-            data.append([list(play.EP_classification_values), [(Globals.score_values[play.next_score][1] * (1 if play.next_score_is_off else -1)), play.QUARTER, play.DOWN, play.OffIsHome]])
+            data.append([list(play.EP_classification_values), [(Globals.score_values[play.next_score].EP[1] * (1 if play.next_score_is_off else -1)), play.QUARTER, play.DOWN, play.offense_is_home]])
 
     print("\tBuilding graphs by model", Functions.timestamp())
     for m, model in enumerate(EP_classification_models):
@@ -629,63 +639,41 @@ def regression_teamseason_plots():
     Creates a bunch of graphs to show team-season EPA
     '''
     print("creating regression team-season EPA plots", Functions.timestamp())
-    print("\tCreating offensive team-season EPA plots", Functions.timestamp())
-    for m, model in enumerate(EP_regression_models):        
-        fig, ax = plt.subplots(1, 1, figsize=(5, 5))
-        for season in range(2002, 2019):
-            for team in Globals.CISTeams:
-                tempdata = [[], []]
-                for game in Globals.gamelist:
-                    if game.game_date.year == season and (game.HOME == team or game.AWAY == team):
-                        for p, play in enumerate(game.playlist):
-                            try:
-                                if play.OFFENSE == team:
-                                    if play.RP == "R":
-                                        tempdata[0].append(play.EPA_regression_list[m])
-                                    elif play.RP == "P":
-                                        tempdata[1].append(play.EPA_regression_list[m])
-                            except Exception as err:
-                                print("teamseason EPA regression list ERROR")
-                                print(play.playdesc, game.playlist[p+1].playdesc)
-                                print(play.EP_regression_list, game.playlist[p+1].EP_regression_list)
-                if len(tempdata[0]) > Globals.THRESHOLD and len(tempdata[1]) > Globals.THRESHOLD:
-                    Functions.imscatter(numpy.mean(tempdata[0]), numpy.mean(tempdata[1]), "Logos/" + team + " logo.png", zoom=0.015)
-        ax.plot([-1, 1], [-1, 1], color='black')
-        ax.set(xlabel="Rush EPA", ylabel="Pass EPA")
-        fig.suptitle("Rush EPA vs Pass EPA\n" + type(model).__name__)
-        ax.grid()
-        fig.savefig(("Figures/EP/Rush EPA vs Pass EPA" + type(model).__name__), dpi=1000)
-        plt.close('all')
-        gc.collect()
-
-        print("\tCreating defensive team-season EPA plots", Functions.timestamp())
-        fig, ax = plt.subplots(1, 1, figsize=(5, 5))
-        for season in range(2002, 2019): 
-            for team in Globals.CISTeams:
-                tempdata = [[], []]
-                for game in Globals.gamelist:
-                    if game.game_date.year == season and (game.HOME == team or game.AWAY == team):
-                        for play in game.playlist:
-                            if play.DEFENSE == team:
-                                if play.RP == "R":
-                                    tempdata[0].append(play.EPA_regression_list[m])
-                                elif play.RP == "P":
-                                    tempdata[1].append(play.EPA_regression_list[m])
-                if len(tempdata[0]) > Globals.THRESHOLD and len(tempdata[1]) > Globals.THRESHOLD:
-                    Functions.imscatter(numpy.mean(tempdata[0]), numpy.mean(tempdata[1]), "Logos/" + team + " logo.png", zoom=0.015, ax=ax)
-        ax.plot([-1, 1], [-1, 1], color='black')
-        ax.set(xlabel="Defensive Rush EPA", ylabel="Defensive Pass EPA")
-        fig.suptitle("Defensive Rush EPA vs Pass EPA,\n" + type(model).__name__)
-        ax.grid()
-        fig.savefig(("Figures/EP/Defensive Rush EPA vs Pass EPA" + type(model).__name__), dpi=1000)
-        plt.close('all')
-        gc.collect()
+    for offensiveness in range(2):
+        print("\tCreating", ("offensive" if offensiveness else "defensive"), "team-season EPA plots", Functions.timestamp())
+        for m, model in enumerate(EP_regression_models):        
+            fig, ax = plt.subplots(1, 1, figsize=(5, 5))
+            for season in range(2002, 2019):
+                for team in Globals.CISTeams:
+                    tempdata = [[], []]
+                    for game in Globals.gamelist:
+                        if game.game_date.year == season and team in game.away_home:
+                            for p, play in enumerate(game.playlist):
+                                try:
+                                    if play.defense_offense[offensiveness] == team:
+                                        if play.RP == "R":
+                                            tempdata[0].append(play.EPA_regression_list[m])
+                                        elif play.RP == "P":
+                                            tempdata[1].append(play.EPA_regression_list[m])
+                                except Exception as err:
+                                    print("teamseason EPA regression list ERROR")
+                                    print(play.playdesc, game.playlist[p+1].playdesc)
+                                    print(play.EP_regression_list, game.playlist[p+1].EP_regression_list)
+                    if len(tempdata[0]) > Globals.THRESHOLD and len(tempdata[1]) > Globals.THRESHOLD:
+                        Functions.imscatter(numpy.mean(tempdata[0]), numpy.mean(tempdata[1]), "Logos/" + team + " logo.png", zoom=0.015)
+            ax.plot([-1, 1], [-1, 1], color='black')
+            ax.set(xlabel="Rush EPA", ylabel="Pass EPA", aspect='equal')
+            fig.suptitle(("Offensive" if offensiveness else "Defensive") + " Rush EPA vs Pass EPA\n" + type(model).__name__)
+            ax.grid()
+            ax.axis([-0.8, 0.5, -0.8, 0.5])
+            fig.savefig(("Figures/EP/" + ("Offensive" if offensiveness else "Defensive") + " Rush EPA vs Pass EPA" + type(model).__name__), dpi=1000)
+            plt.close('all')
+            gc.collect()
 
         print("\tCreating conference team-season EPA plots", Functions.timestamp())
         fig, ax = plt.subplots(1, 1, figsize=(5, 5))
         for season in range(2002, 2019):
             for conference in Globals.CISConferences:
-                print(conference, season)
                 tempdata = [[], []]
                 for game in Globals.gamelist:
                     if game.game_date.year == season and game.CONFERENCE == conference:
@@ -697,9 +685,10 @@ def regression_teamseason_plots():
                 if len(tempdata[0]) > Globals.THRESHOLD and len(tempdata[1]) > Globals.THRESHOLD:
                     Functions.imscatter(numpy.mean(tempdata[0]), numpy.mean(tempdata[1]), "Logos/" + conference + " logo.png", zoom=0.015)
         ax.plot([-1, 1], [-1, 1], color='black')
-        ax.set(xlabel="Rush EPA", ylabel="Pass EPA")
+        ax.set(xlabel="Rush EPA", ylabel="Pass EPA", aspect='equal')
         fig.suptitle("Conference Rush EPA vs Pass EPA\n" + type(model).__name__)
         ax.grid()
+        ax.axis([-0.8, 0.5, -0.8, 0.5])
         fig.savefig(("Figures/EP/Conference Rush EPA vs Pass EPA" + type(model).__name__), dpi=1000)
         plt.close('all')
         gc.collect()
@@ -712,66 +701,41 @@ def raw_teamseason_plots():
     '''
     print("Creating raw team-season EPA plots", Functions.timestamp())
 
-    print("\tCreating offensive team-season EPA plots", Functions.timestamp())
-    for m, model in enumerate(EP_regression_models):
-
-        fig, ax = plt.subplots(1, 1, figsize=(5, 5))
-        for season in range(2002, 2019):
-            for team in Globals.CISTeams:
-                print(team, season)
-                tempdata = [[], []]
-                for game in Globals.gamelist:
-                    if game.game_date.year == season and (game.HOME == team or game.AWAY == team):
-                        for p, play in enumerate(game.playlist):
-                            try:
-                                if play.OFFENSE == team:
-                                    if play.RP == "R":
-                                        tempdata[0].append(play.raw_EPA)
-                                    elif play.RP == "P":
-                                        tempdata[1].append(play.raw_EPA)
-                            except Exception as err:
-                                print("teamseason EPA regression list ERROR")
-                                print(play.playdesc, game.playlist[p+1].playdesc)
-                                print(play.raw_EPA, game.playlist[p+1].raw_EPA)
-                if len(tempdata[0]) > Globals.THRESHOLD and len(tempdata[1]) > Globals.THRESHOLD:
-                    Functions.imscatter(numpy.mean(tempdata[0]), numpy.mean(tempdata[1]), "Logos/" + team + " logo.png", zoom=0.015)
-        ax.plot([-1, 1], [-1, 1], color='black')
-        ax.set(xlabel="Rush EPA", ylabel="Pass EPA")
-        fig.suptitle("Rush EPA vs Pass EPA,\n Raw")
-        ax.grid()
-        fig.savefig("Figures/EP/Rush EPA vs Pass EPA, Raw", dpi=1000)
-        plt.close('all')
-        gc.collect()
-
-        print("\tCreating defensive team-season EPA plots", Functions.timestamp())
-        fig, ax = plt.subplots(1, 1, figsize=(5, 5))
-        for season in range(2002, 2019): 
-            for team in Globals.CISTeams:
-                print(team, season)
-                tempdata = [[], []]
-                for game in Globals.gamelist:
-                    if game.game_date.year == season and (game.HOME == team or game.AWAY == team):
-                        for play in game.playlist:
-                            if play.DEFENSE == team:
-                                if play.RP == "R":
-                                    tempdata[0].append(play.raw_EPA)
-                                elif play.RP == "P":
-                                    tempdata[1].append(play.raw_EPA)
-                if len(tempdata[0]) > Globals.THRESHOLD and len(tempdata[1]) > Globals.THRESHOLD:
-                    Functions.imscatter(numpy.mean(tempdata[0]), numpy.mean(tempdata[1]), "Logos/" + team + " logo.png", zoom=0.015, ax=ax)
-        ax.plot([-1, 1], [-1, 1], color='black')
-        ax.set(xlabel="Defensive Rush EPA", ylabel="Defensive Pass EPA")
-        fig.suptitle("Defensive Rush EPA vs Pass EPA,\nRaw")
-        ax.grid()
-        fig.savefig(("Figures/EP/Defensive Rush EPA vs Pass EPA, Raw"), dpi=1000)
-        plt.close('all')
-        gc.collect()
+    for offensiveness in range(2):
+        print("\tCreating", ("Offensive" if offensiveness else "Defensive"), "team-season EPA plots", Functions.timestamp())
+        for m, model in enumerate(EP_regression_models):
+            fig, ax = plt.subplots(1, 1, figsize=(5, 5))
+            for season in range(2002, 2019):
+                for team in Globals.CISTeams:
+                    tempdata = [[], []]
+                    for game in Globals.gamelist:
+                        if game.game_date.year == season and team in game.away_home:
+                            for p, play in enumerate(game.playlist):
+                                try:
+                                    if play.defense_offense[offensiveness] == team:
+                                        if play.RP == "R":
+                                            tempdata[0].append(play.raw_EPA)
+                                        elif play.RP == "P":
+                                            tempdata[1].append(play.raw_EPA)
+                                except Exception as err:
+                                    print("teamseason EPA regression list ERROR")
+                                    print(play.playdesc, game.playlist[p+1].playdesc)
+                                    print(play.raw_EPA, game.playlist[p+1].raw_EPA)
+                    if len(tempdata[0]) > Globals.THRESHOLD and len(tempdata[1]) > Globals.THRESHOLD:
+                        Functions.imscatter(numpy.mean(tempdata[0]), numpy.mean(tempdata[1]), "Logos/" + team + " logo.png", zoom=0.015)
+            ax.plot([-1, 1], [-1, 1], color='black')
+            ax.set(xlabel="Rush EPA", ylabel="Pass EPA", aspect='equal')
+            fig.suptitle(("Offensive" if offensiveness else "Defensive") + " Rush EPA vs Pass EPA,\n Raw")
+            ax.grid()
+            ax.axis([-0.8, 0.5, -0.8, 0.5])
+            fig.savefig("Figures/EP/" + ("Offensive" if offensiveness else "Defensive") + " Rush EPA vs Pass EPA, Raw", dpi=1000)
+            plt.close('all')
+            gc.collect()
 
         print("\tCreating conference team-season EPA plots", Functions.timestamp())
         fig, ax = plt.subplots(1, 1, figsize=(5, 5))
         for season in range(2002, 2019):
             for conference in Globals.CISConferences:
-                print(conference, season)
                 tempdata = [[], []]
                 for game in Globals.gamelist:
                     if game.game_date.year == season and game.CONFERENCE == conference:
@@ -783,9 +747,10 @@ def raw_teamseason_plots():
                 if len(tempdata[0]) > Globals.THRESHOLD and len(tempdata[1]) > Globals.THRESHOLD:
                     Functions.imscatter(numpy.mean(tempdata[0]), numpy.mean(tempdata[1]), "Logos/" + conference + " logo.png", zoom=0.015)
         ax.plot([-1, 1], [-1, 1], color='black')
-        ax.set(xlabel="Rush EPA", ylabel="Pass EPA")
+        ax.set(xlabel="Rush EPA", ylabel="Pass EPA", aspect='equal')
         fig.suptitle("Conference Rush EPA vs Pass EPA,\nRaw")
         ax.grid()
+        ax.axis([-0.8, 0.5, -0.8, 0.5])
         fig.savefig("Figures/EP/Conference Rush EPA vs Pass EPA, Raw", dpi=1000)
         plt.close('all')
         gc.collect()

@@ -24,7 +24,7 @@ class Punt():
 
         self.EP = numpy.full(3, numpy.nan)  # Average EP value of this punt
         self.EP_ARRAY = []  # List holding all the EP data
-        self.EP_BOOTSTRAP = Globals.DummyArray  # Bootstrap of EP to determine CI
+        self.EP_bootstrap = Globals.DummyArray  # Bootstrap of EP to determine CI
 
         self.gross = numpy.full(3, numpy.nan)
         self.gross_array = []
@@ -94,7 +94,7 @@ def P_EP():
                 if play.ODK == "P" and not(play.score_play == "SAFETY" and play.score_play_is_off):
                     # Need to filter out intentional safeties
                     if play.score_play:
-                        PUNT_ARRAY[play.YDLINE].EP_ARRAY.append(numpy.float(Globals.score_values[play.score_play][1] * (1 if play.score_play_is_off else -1)))
+                        PUNT_ARRAY[play.YDLINE].EP_ARRAY.append(numpy.float(Globals.score_values[play.score_play].EP[1] * (1 if play.score_play_is_off else -1)))
                     else:
                         for n, nextPlay in enumerate(game.playlist[p + 1:]):
                             PUNT_ARRAY[play.YDLINE].EP_ARRAY.append(numpy.float(EPClass.EP_ARRAY[nextPlay.DOWN][nextPlay.DISTANCE][nextPlay.YDLINE].EP[1] * (1 if nextPlay.defense_offense == play.defense_offense else -1)))
