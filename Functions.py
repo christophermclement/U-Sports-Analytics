@@ -99,7 +99,7 @@ def bootstrap(input_list):
         input_list, (Globals.BOOTSTRAP_SIZE, len(input_list)), replace=True), axis=1))
 
  
-def BootCompare(arrA, arrB):
+def boot_compare(arrA, arrB):
     count = b = 0
     for a in range(Globals.BOOTSTRAP_SIZE):
         for b in range(b, Globals.BOOTSTRAP_SIZE):
@@ -286,10 +286,8 @@ def correlation_graph(input_data, ax):
     ax.plot(numpy.arange(101), linearFit(numpy.arange(101), 1, 0), color='black', label=r"$R^2={0:5.4f}, RMSE={1:5.4f}$".format(r2, rmse))
     ax.grid()
     ax.legend()
-    ax.set(aspect='equal')
+    ax.set(aspect='equal', xlabel="Predicted", ylabel="Actual")
     ax.axis([0, 100, 0, 100])
-    ax.set_xlabel("Predicted")
-    ax.set_ylabel("Actual")
     ax.label_outer()
     return None
             
@@ -325,3 +323,12 @@ def correlation_values_graph(input_data, ax):
     ax.set_ylabel("Actual")
     ax.label_outer()
     return None
+
+
+def assign_from_list(outputlist, attribute):
+    '''
+    Lets us efficiently assign all the values from the different model outputlists to play attributes
+    '''
+    for game in Globals.gamelist:
+        for play in game.playlist:
+            setattr(play, attribute, [x.pop() for x in outputlist])

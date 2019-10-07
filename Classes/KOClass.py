@@ -119,7 +119,7 @@ def KO_EP():
             for p, play in enumerate(game.playlist):
                 if play.ODK == "KO":
                     if play.score_play:
-                        KO_ARRAY[play.YDLINE].EP_ARRAY.append(Globals.score_values[play.score_play][1] * (1 if play.score_play_is_off else -1))
+                        KO_ARRAY[play.YDLINE].EP_ARRAY.append(Globals.score_values[play.score_play].EP[1] * (1 if play.score_play_is_off else -1))
                     else:
                         for nextPlay in game.playlist[p + 1:]:
                             if nextPlay.ODK == "OD":
@@ -159,7 +159,7 @@ def KO_plots():
     xdata = numpy.array([ydline.YDLINE for ydline in KO_ARRAY if len(ydline.EP_ARRAY) > Globals.THRESHOLD])
     ydata = numpy.array([ydline.EP[1] for ydline in KO_ARRAY if len(ydline.EP_ARRAY) > Globals.THRESHOLD])
     error = numpy.array([numpy.subtract(xdata, [ydline.EP[0] for ydline in KO_ARRAY if len(ydline.EP_ARRAY) > Globals.THRESHOLD]),
-                         numpy.subract([ydline.EP[2] for ydline in KO_ARRAY if len(ydline.EP_ARRAY) > Globals.THRESHOLD], xdata)])
+                         numpy.subtract([ydline.EP[2] for ydline in KO_ARRAY if len(ydline.EP_ARRAY) > Globals.THRESHOLD], xdata)])
     func = Functions.cubicFit
     fit = scipy.optimize.curve_fit(func, xdata, ydata)[0]
     rmse = Functions.RMSE(func, fit, numpy.array(xdata), numpy.array(ydata))

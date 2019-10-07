@@ -18,12 +18,14 @@ from Classes import ThirdDownClass
 import Functions
 import WP
 import Globals
+import GUI
 import sys
 import itertools
 import gc
 import os
 import random
 import cProfile
+print("poop")
 
 def import_mule(csvmule, mule):
     '''
@@ -46,28 +48,30 @@ def score_bootstrap():
     '''
     print("Bootstrapping scores", Functions.timestamp())
     # The value of a TD is the 6 nominal points, the probability of the 1-pt (until 2-pt becomes more popular we'll simplify) and the value of the resultant KO)
-    Globals.score_bootstraps["TD"] = \
-        numpy.sort(6 
+    Globals.score_values["TD"].EP_bootstrap = numpy.sort(6 
             + KOClass.KO_ARRAY[65].EP_bootstrap
             + numpy.random.binomial(sum(FGClass.FG_ARRAY[5].counts.values()), FGClass.FG_ARRAY[5].probabilities["GOOD"][1], Globals.BOOTSTRAP_SIZE) / sum(FGClass.FG_ARRAY[5].counts.values()))
 
-    Globals.score_bootstraps["ROUGE"] = numpy.sort(1 - EPClass.EP_ARRAY[1][10][75].BOOTSTRAP)  # The adjustment for the rouge is purely based on the value of the resultant possession
+    Globals.score_values["ROUGE"].EP_bootstrap = numpy.sort(1 - EPClass.EP_ARRAY[1][10][75].BOOTSTRAP)  # The adjustment for the rouge is purely based on the value of the resultant possession
 
     if EPClass.EP_ARRAY[1][10][75].EP[1] > (-1) * KOClass.KO_ARRAY[65].EP[1]:  # Value of a FG has to assume a rational decision between taking the ball or the KO
-        Globals.score_bootstraps["FG"] = numpy.sort(3 - EPClass.EP_ARRAY[1][10][75].BOOTSTRAP)
+        Globals.score_values["FG"].EP_bootstrap = numpy.sort(3 - EPClass.EP_ARRAY[1][10][75].BOOTSTRAP)
     else:
-        Globals.score_bootstraps["FG"] = numpy.sort(3 + KOClass.KO_ARRAY[65].BOOTSTRAP)
+        Globals.score_values["FG"].EP_bootstrap = numpy.sort(3 + KOClass.KO_ARRAY[65].EP_bootstrap)
 
     if EPClass.EP_ARRAY[1][10][75].EP[1] > (-1) * KOClass.KO_ARRAY[75].EP[1]:
-        Globals.score_bootstraps["SAFETY"] = numpy.sort(-2 - EPClass.EP_ARRAY[1][10][75].BOOTSTRAP)
+        Globals.score_values["SAFETY"].EP_bootstrap = numpy.sort(-2 - EPClass.EP_ARRAY[1][10][75].BOOTSTRAP)
     else:
-        Globals.score_bootstraps["SAFETY"] = numpy.sort(-2 + KOClass.KO_ARRAY[75].EP_bootstrap)
+        Globals.score_values["SAFETY"].EP_bootstrap = numpy.sort(-2 + KOClass.KO_ARRAY[75].EP_bootstrap)
+    
+    Globals.score_values["HALF"].EP_bootstrap = numpy.zeros(Globals.BOOTSTRAP_SIZE)
 
     for score in Globals.score_values:
-        Globals.score_values[score][2] = Globals.score_bootstraps[score][int(Globals.BOOTSTRAP_SIZE * (1 - Globals.CONFIDENCE))]
-        Globals.score_values[score][0] = Globals.score_bootstraps[score][int(Globals.BOOTSTRAP_SIZE * Globals.CONFIDENCE - 1)]
+        Globals.score_values[score].EP[2] = Globals.score_values[score].EP_bootstrap[int(Globals.BOOTSTRAP_SIZE * (1 - Globals.CONFIDENCE))]
+        Globals.score_values[score].EP[0] = Globals.score_values[score].EP_bootstrap[int(Globals.BOOTSTRAP_SIZE * Globals.CONFIDENCE - 1)]
+
     for score in Globals.score_values:
-        print(score, "\t", Globals.score_values[score])
+        print(score, "\t", Globals.score_values[score].EP)
     return None
 
 
@@ -76,7 +80,6 @@ def iterate_scores():
     Iterates to find score values by adjusting for continuing effects until we reach convergence
     '''
     print("Iterating to find score values", Functions.timestamp())
-    #TODO: Consider moving precision to a numpy.float128 type to get stupid levels of precision. At that point it's just an academic exercise in learning how to use numpy
     PRECISION = numpy.float(100.0)  # This is the measure of convergence of score values
     TEMP = numpy.float(0.0)  # Just a dummy to allow us to determine the change in value
     EPClass.EP_calculate()  # Need initial values for EP
@@ -89,36 +92,36 @@ def iterate_scores():
         KOClass.KO_calculate()
         FGClass.FG_calculate()
 
-        TEMP = Globals.score_values["TD"][1]  # Adjust TD value
-        Globals.score_values["TD"][1] = 6 + FGClass.FG_ARRAY[5].probabilities["GOOD"][1] + KOClass.KO_ARRAY[65].EP[1]
-        PRECISION = abs(TEMP - Globals.score_values["TD"][1]) / Globals.score_values["TD"][1]
+        TEMP = Globals.score_values["TD"].EP[1]  # Adjust TD value
+        Globals.score_values["TD"].EP[1] = 6 + FGClass.FG_ARRAY[5].probabilities["GOOD"][1] + KOClass.KO_ARRAY[65].EP[1]
+        PRECISION = abs(TEMP - Globals.score_values["TD"].EP[1]) / Globals.score_values["TD"].EP[1]
 
-        TEMP = Globals.score_values["ROUGE"][1]  # Adjust ROUGE value
-        Globals.score_values["ROUGE"][1] = 1 - EPClass.EP_ARRAY[1][10][75].EP[1]
-        PRECISION = abs(Globals.score_values["ROUGE"][1] - TEMP) / Globals.score_values["ROUGE"][1]\
-            if abs(Globals.score_values["ROUGE"][1] - TEMP) / Globals.score_values["ROUGE"][1]\
+        TEMP = Globals.score_values["ROUGE"].EP[1]  # Adjust ROUGE value
+        Globals.score_values["ROUGE"].EP[1] = 1 - EPClass.EP_ARRAY[1][10][75].EP[1]
+        PRECISION = abs(Globals.score_values["ROUGE"].EP[1] - TEMP) / Globals.score_values["ROUGE"].EP[1]\
+            if abs(Globals.score_values["ROUGE"].EP[1] - TEMP) / Globals.score_values["ROUGE"].EP[1]\
             > PRECISION else PRECISION
 
         # Put in a print about whether to take the ball at the 35 or make them kick
-        TEMP = Globals.score_values["FG"][1]  # Adjust FG value
+        TEMP = Globals.score_values["FG"].EP[1]  # Adjust FG value
         if EPClass.EP_ARRAY[1][10][75].EP[1] > (-1) * KOClass.KO_ARRAY[65].EP[1]:
-            Globals.score_values["FG"][1] = 3 - EPClass.EP_ARRAY[1][10][75].EP[1]
+            Globals.score_values["FG"].EP[1] = 3 - EPClass.EP_ARRAY[1][10][75].EP[1]
         else:
-            Globals.score_values["FG"][1] = 3 + KOClass.KO_ARRAY[65].EP[1]
-        PRECISION = abs(TEMP - Globals.score_values["FG"][1]) / Globals.score_values["FG"][1]\
-            if abs(TEMP - Globals.score_values["FG"][1]) / Globals.score_values["FG"][1]\
+            Globals.score_values["FG"].EP[1] = 3 + KOClass.KO_ARRAY[65].EP[1]
+        PRECISION = abs(TEMP - Globals.score_values["FG"].EP[1]) / Globals.score_values["FG"].EP[1]\
+            if abs(TEMP - Globals.score_values["FG"].EP[1]) / Globals.score_values["FG"].EP[1]\
             > PRECISION else PRECISION
 
-        TEMP = Globals.score_values["SAFETY"][1]  # Adjust SAFETY value
+        TEMP = Globals.score_values["SAFETY"].EP[1]  # Adjust SAFETY value
         if EPClass.EP_ARRAY[1][10][75].EP[1] > (-1) * KOClass.KO_ARRAY[75].EP[1]:
-            Globals.score_values["SAFETY"][1] = -2 - EPClass.EP_ARRAY[1][10][75].EP[1]
+            Globals.score_values["SAFETY"].EP[1] = -2 - EPClass.EP_ARRAY[1][10][75].EP[1]
         else:
-            Globals.score_values["SAFETY"][1] = -2 + KOClass.KO_ARRAY[75].EP[1]
-        PRECISION = abs(TEMP - Globals.score_values["SAFETY"][1]) / Globals.score_values["SAFETY"][1]\
-            if abs(TEMP - Globals.score_values["SAFETY"][1]) / Globals.score_values["SAFETY"][1]\
+            Globals.score_values["SAFETY"].EP[1] = -2 + KOClass.KO_ARRAY[75].EP[1]
+        PRECISION = abs(TEMP - Globals.score_values["SAFETY"].EP[1]) / Globals.score_values["SAFETY"].EP[1]\
+            if abs(TEMP - Globals.score_values["SAFETY"].EP[1]) / Globals.score_values["SAFETY"].EP[1]\
             > PRECISION else PRECISION
         print("% change: {0:4.2e}".format(PRECISION), Functions.timestamp())
-        print([x[1] for x in Globals.score_values.values()], Functions.timestamp())
+        print([x.EP[1] for x in Globals.score_values.values()], Functions.timestamp())
     return None
 
 
@@ -277,8 +280,6 @@ def recalc_ep():
 
         with open("Pickle/score_values", 'wb') as file:
             pickle.dump(Globals.score_values, file)
-        with open("Pickle/score_bootstraps", "wb") as file:
-            pickle.dump(Globals.score_bootstraps, file)
         with open("Pickle/PUNT_ARRAY", 'wb') as file:
             pickle.dump(PuntClass.PUNT_ARRAY, file)
         with open("Pickle/FG_ARRAY", 'wb') as file:
@@ -343,34 +344,58 @@ def redraw_plots():
         #P1DClass.teamseason()
         #FGClass.FG_PLOTS()
         #FGClass.FG_correlation()
-        KOClass.KO_plots()
-        #EPClass.EP_regression_correlation()
+        #KOClass.KO_plots()
+        EPClass.EP_regression_correlation()
         #EPClass.EP_classification_correlation()
         #EPClass.EP_classification_values_correlation()
         #EPClass.raw_EP_plots()
         #EPClass.EP_classification_plots()
-        #EPClass.EP_regression_plots()
+        EPClass.EP_regression_plots()
         EPClass.regression_teamseason_plots()
-        EPClass.raw_teamseason_plots()
+        #EPClass.raw_teamseason_plots()
         #WP.WP_correlation()
         #WP.WP_PLOTS()
         pass
     return None
 
 
-REPARSE_DATA = False
-RECALCULATE_EP = False
+def third_down():
+    if third_down:
+        ThirdDownClass.go_for_it_boot()
+        ThirdDownClass.third_down_calculate()
+    return None
+
+
+def create_GUI():
+    GUI.create_main_menu()
+    return None
+
+REPARSE_DATA = True
+RECALCULATE_EP = True
 RECALCULATE_WP = False
 RECALCULATE_FG = True
 DRAW_PLOTS = True
+CALCULATE_THIRD_DOWN = True
+RUN_GUI = True
 
-
+print("poo")
+#create_GUI()
+reparse()
+for game in Globals.gamelist:
+    for play in game.playlist:
+        if play.YDLINE - play.DISTANCE > 100:
+            print (play.MULE, play.playdesc)
+recalc_ep()
+recalc_wp()
+recalc_fg()
+redraw_plots()
+'''
 cProfile.run('reparse()')
 cProfile.run('recalc_ep()')
 cProfile.run('recalc_wp()')
 cProfile.run('recalc_fg()')
-#redraw_plots()
-
+cProfile.run('redraw_plots()')
+'''
 
 '''
 print (sorted(Globals.passerList), len(Globals.passerList))

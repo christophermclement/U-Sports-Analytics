@@ -78,6 +78,16 @@ stadium_list =\
 
 stadia = {x[0] : stadium(*x) for x in stadium_list}
 
+class scoring_play():
+    '''
+    Let's see if we make a class for the four different scoring plays, that way we have the EP and EP_bootstrap
+    '''
+    def __init__(self, name, base_value):
+        self.name = name  # This is like "TD" or "ROUGE" or whatever
+        self.EP = numpy.empty(3, dtype='Float64')
+        self.EP[1] = base_value
+        self.EP_bootstrap = None
+
 high_accuracy = True  # This is a quick boolean to drastically reduce the degree of precision of our modeling for testing purposes
 if high_accuracy:
     BOOTSTRAP_SIZE = 1000  # Number of bootstrap iterations to use
@@ -96,18 +106,19 @@ THRESHOLD = 100  # The minimum N to include in the graphs
 DISTANCE_LIMIT = 51  # This is the max size of P(1D), etc. we're accepting. Usually 26 (meaning 25) but we'll try with longer ones.
 alpha_scores = [["FG", False], ["ROUGE", False], ["SAFETY", False], ["TD", False], ["HALF", False], ["FG", True], ["ROUGE", True], ["SAFETY", True], ["TD", True]]
 
-score_values = {"FG": numpy.array([None, 3.0, None], dtype=numpy.dtype('Float64')),
-                "ROUGE": numpy.array([None, 1.0, None], dtype=numpy.dtype('Float64')),
-                "SAFETY": numpy.array([None, -2.0, None], dtype=numpy.dtype('Float64')),
-                "TD": numpy.array([None, 7.0, None], dtype=numpy.dtype('Float64')),
-                "HALF": numpy.array([None, 0.0, None], dtype=numpy.dtype('Float64'))}
+score_values = {"FG": scoring_play("FG", 3),
+                "ROUGE": scoring_play("ROUGE", 2),
+                "SAFETY": scoring_play("SAFETY", -2),
+                "TD": scoring_play("TD", 7),
+                "HALF": scoring_play("HALF", 0)}
 
+'''
 score_bootstraps = {"FG": numpy.empty(BOOTSTRAP_SIZE, dtype=numpy.dtype('Float64')),
                     "ROUGE": numpy.empty(BOOTSTRAP_SIZE, dtype=numpy.dtype('Float64')),
                     "SAFETY": numpy.empty(BOOTSTRAP_SIZE, dtype=numpy.dtype('Float64')),
                     "TD": numpy.empty(BOOTSTRAP_SIZE, dtype=numpy.dtype('Float64')),
                     "HALF": numpy.empty(BOOTSTRAP_SIZE, dtype=numpy.dtype('Float64'))}
-
+'''
 
 gamelist = []  # The gamelist holds all the games
 

@@ -16,7 +16,7 @@ class play():
     relating to the play that is not general to the game should be held here.
     '''
 
-    def __init__(self, row, hscore, ascore, away_home, offishome, qtr, away_home_timeouts, clock, MULE):
+    def __init__(self, row, hscore, ascore, away_home, offense_is_home, qtr, away_home_timeouts, clock, MULE):
 
         # Need to carry this information because it affects some of the parsing
         self.MULE = MULE
@@ -31,7 +31,7 @@ class play():
             self.SPOT = row[2]
             self.playdesc = row[3]
 
-        self.offense_is_home = offishome
+        self.offense_is_home = offense_is_home
         self.defense_offense = away_home if self.offense_is_home else away_home[::-1]
         self.defense_offense_timeouts = away_home_timeouts if self.offense_is_home else away_home_timeouts[::-1]
         self.defense_offense_score = [ascore, hscore] if self.offense_is_home else [hscore, ascore]
