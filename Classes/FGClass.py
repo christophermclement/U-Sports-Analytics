@@ -49,7 +49,7 @@ class FG():
         if sum(self.counts.values()) > 0:
             for outcome in self.counts:
                 self.probabilities[outcome][1] = self.counts[outcome] / sum(self.counts.values())
-            self.EP[1] = sum(self.EP_ARRAY) / sum(self.counts.values())
+            self.EP[1] = numpy.mean(self.EP_ARRAY)
         return None
 
     def wipe(self):
@@ -64,7 +64,7 @@ class FG():
                         "ROUGE" : numpy.array([None, None, None], dtype='float'),
                         "MISSED" : numpy.array([None, None, None], dtype='float')}
 
-        self.EP = [None, None, None]
+        self.EP = numpy.array([None, None, None])
         self.BOOTSTRAP = Globals.DummyArray
         self.EP_ARRAY = []
         return None
@@ -77,12 +77,11 @@ class FG():
             for outcome in self.probabilities:
                 self.probabilities[outcome][2] = Functions.BinomHigh(self.counts[outcome], sum(self.counts.values()), Globals.CONFIDENCE)
                 self.probabilities[outcome][0] = Functions.BinomLow(self.counts[outcome], sum(self.counts.values()), Globals.CONFIDENCE)
-            self.BOOTSTRAP =\
-                numpy.sort(numpy.array([numpy.average(numpy.random.choice(
-                        self.EP_ARRAY, len(self.EP_ARRAY), replace=True))
-                        for _ in range(Globals.BOOTSTRAP_SIZE)], dtype='f4'))
-            self.EP[0] = self.BOOTSTRAP[int(Globals.BOOTSTRAP_SIZE * Globals.CONFIDENCE - 1)]
-            self.EP[2] = self.BOOTSTRAP[int(Globals.BOOTSTRAP_SIZE * (1 - Globals.CONFIDENCE))]
+            self.BOOTSTRAP = Functions.bootstrap(self.EP_ARRAY)
+
+            self.EP = numpy.array([self.BOOTSTRAP[int(Globals.BOOTSTRAP_SIZE * Globals.CONFIDENCE - 1)],
+                                  numpy.mean(self.EP_ARRAY),
+                                  self.BOOTSTRAP[int(Globals.BOOTSTRAP_SIZE * (1 - Globals.CONFIDENCE))]])
         return None
 
 
@@ -147,32 +146,14 @@ def FG_classification():
         if type(model).__name__ == "KNeighborsClassifier":
             model.n_neighbors = int(len(FG_data_y) ** 0.5)    
 
-    outputlist = [[] for x in FG_classification_models]
-    kf = KFold(n_splits=Globals.KFolds)
-    kf.get_n_splits(FG_data_x)
-    for train_index, test_index in kf.split(FG_data_x):
-        for m, model in enumerate(FG_classification_models):
-            model.fit(FG_data_x.iloc[train_index],
-                      FG_data_y.iloc[train_index].values.ravel())
-            outputlist[m].extend(model.predict_proba(FG_data_x.iloc[test_index]))
-            print("   ", type(model).__name__, "fitted", Functions.timestamp())
-    print("    KFolds fitted", Functions.timestamp())
-
-    for model in outputlist:
-        for play in model:
-            play = [x for x in play]  # Converting from arrays to lists
-        model.reverse()  # We need it in reverse order to be able to pop
+    outputlist = Functions.fit_models(FG_classification_models, FG_data_x, FG_data_y, 3)
+    outputlist = numpy.flip(outputlist, axis=1).tolist()
 
     for game in Globals.gamelist:
         for play in game.playlist:
             if play.FG_RSLT and play.METAR:
                 if play.headwind is not None and play.crosswind is not None and play.METAR.temp is not None:
                     play.FG_probs_list = [x.pop() for x in outputlist]
-
-    for model in FG_classification_models:
-        model.fit(FG_data_x, FG_data_y.values.ravel())
-        print("    ", type(model).__name__, "fitted", Functions.timestamp())
-    print("    Full models fitted", Functions.timestamp())
 
     Functions.printFeatures(FG_classification_models)
     return None
@@ -220,39 +201,18 @@ def FG_regression():
                                  columns=["ydline", "altitude", "temperature", "headwind", "crosswind", "weather"])
     FG_data_y = pandas.DataFrame([x[-1] for x in FG_data], columns=["FG_Result"])
 
-    print(len(FG_data_y))
-
     for model in FG_regression_models:
         if type(model).__name__ == "KNeighborsRegressor":
             model.n_neighbors = int(len(FG_data_y) ** 0.5)    
 
-    outputlist = [[] for x in FG_regression_models]
-    kf = KFold(n_splits=Globals.KFolds)
-    kf.get_n_splits(FG_data_x)
-    for train_index, test_index in kf.split(FG_data_x):
-        for m, model in enumerate(FG_regression_models):
-            model.fit(FG_data_x.iloc[train_index],
-                      FG_data_y.iloc[train_index].values.ravel())
-            outputlist[m].extend(model.predict(FG_data_x.iloc[test_index]))
-            print("   ", type(model).__name__, "fitted", Functions.timestamp())
-    print("    KFolds fitted", Functions.timestamp())
-
-    print(len(outputlist[0]))
-    for model in outputlist:
-#        for play in model:
-#            play = [x for x in play]  # Converting from arrays to lists
-        model.reverse()  # We need it in reverse order to be able to pop
+    outputlist = Functions.fit_models(FG_regression_models, FG_data_x, FG_data_y, 1)
+    outputlist = numpy.flip(outputlist, axis=1).tolist()
 
     for game in Globals.gamelist:
         for play in game.playlist:
             if play.FG_RSLT and play.METAR:
                 if play.headwind is not None and play.crosswind is not None and play.METAR.temp is not None:
                     play.FG_regression_list = [model.pop() for model in outputlist]
-
-    for model in FG_regression_models:
-        model.fit(FG_data_x, FG_data_y.values.ravel())
-        print("    ", type(model).__name__, "fitted", Functions.timestamp())
-    print("    Full models fitted", Functions.timestamp())
 
     Functions.printFeatures(FG_regression_models)
     return None

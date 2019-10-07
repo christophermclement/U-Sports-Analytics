@@ -402,6 +402,7 @@ class game():
     def METARList_FN(self):
         '''
         Goes through the appropriate CSV to get the METARs appropriate to that game, accounting for the time zone and Zulu time
+        We get killed by the strptime
         '''
         try:
             if self.stadium.isDome:
@@ -420,25 +421,20 @@ class game():
                         endMETAR, month=self.game_date.month,
                         year=self.game_date.year))
             else:
-                rowtime = datetime.datetime(1900, 1, 1)
-                rowtime = rowtime.replace(tzinfo=pytz.utc)
-                with open("METAR/" + self.stadium.airport
-                           + " " + str(self.game_date.year) + ".csv") as csvfile:
+                rowtime = datetime.datetime(1900, 1, 1).replace(tzinfo=pytz.utc)
+                with open("METAR/" + self.stadium.airport + " " + str(self.game_date.year) + ".csv") as csvfile:
                     metarcsv = csv.reader(csvfile, delimiter=';')
                     for r, row in enumerate(metarcsv):
                         if len(row) > 1:
                             if len(row[1]) > 8:
                                 if int(row[1][5:7]) >= self.game_date.month:
-                                    rowtime = datetime.datetime.strptime(
-                                            row[1], "%Y-%m-%d %H:%M")
-                                    rowtime = rowtime.replace(tzinfo=pytz.utc)
-                                    # this grabs anything within 1 hour of KO
-                                    if rowtime > self.game_date - datetime.timedelta(hours=1):
-                                        self.METARList.append(Metar.Metar(
-                                                row[2], month=rowtime.month,
-                                                year=rowtime.year,
-                                                utcdelta=datetime.timedelta()))
-                                        self.METARList[-1].time = self.METARList[-1].time.replace(tzinfo=pytz.utc)  # Does the UTC Conversion on the metar object we just created
+                                    if int(row[1][8:10]) >= self.game_date.day:
+                                        rowtime = datetime.datetime.strptime(row[1], "%Y-%m-%d %H:%M").replace(tzinfo=pytz.utc)
+                                        # this grabs anything within 1 hour of KO
+                                        if rowtime > self.game_date - datetime.timedelta(hours=1):
+                                            self.METARList.append(Metar.Metar(row[2], month=rowtime.month, year=rowtime.year,
+                                                    utcdelta=datetime.timedelta()))
+                                            self.METARList[-1].time = self.METARList[-1].time.replace(tzinfo=pytz.utc)  # Does the UTC Conversion on the metar object we just created
                         if rowtime >= self.playlist[-1].realTime:
                             break
                 if self.METARList == []:

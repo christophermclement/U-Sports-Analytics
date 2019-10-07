@@ -58,22 +58,20 @@ def WP_classification():
                             play.DISTANCE,
                             play.YDLINE,
                             play.TIME,
-                            play.O_SCORE,
-                            play.D_SCORE,
-                            play.O_LEAD,
-                            play.O_TO,
-                            play.D_TO,
-                            play.OffIsHome,
-                            play.O_WIN])  # Response variable
+                            *play.defense_offense_score,
+                            play.offense_lead,
+                            *play.defense_offense_timeouts,
+                            play.offense_is_home,
+                            play.offense_wins])  # Response variable
     WP_data_x = [x[:-1] for x in WP_data]  # Separate the input and output
     WP_data_y = [x[-1] for x in WP_data]
 
 
     WP_data_x = pandas.DataFrame(WP_data_x,
                                  columns=["Down", "Distance", "Ydline", "Time",
-                                          "Offense Score", "Defense Score", "O Lead",
-                                          "Offense TO", "Defense TO", "OffIsHome"])  # Convert to dataframe to play nice with sklearn
-    WP_data_y = pandas.DataFrame(WP_data_y, columns=["O Win"])
+                                          "Defense Score", "Offense Score", "Offense Lead",
+                                          "Defense TO", "Offense TO", "OffIsHome"])  # Convert to dataframe to play nice with sklearn
+    WP_data_y = pandas.DataFrame(WP_data_y, columns=["Offense Wins"])
 
     for model in WP_classification_models:
         if type(model).__name__ == "KNeighborsClassifier":

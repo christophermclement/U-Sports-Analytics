@@ -80,7 +80,7 @@ def iterate_scores():
     PRECISION = numpy.float(100.0)  # This is the measure of convergence of score values
     TEMP = numpy.float(0.0)  # Just a dummy to allow us to determine the change in value
     EPClass.EP_calculate()  # Need initial values for EP
-    while PRECISION > 10 ** -15:  # Can adjust precision as needed
+    while PRECISION:  # Can adjust precision as needed
         EPClass.EP_calculate()
         KOClass.KO_wipe()
         FGClass.FG_wipe()
@@ -196,12 +196,10 @@ def parser():
 def reparse():
     if REPARSE_DATA:
         print("importing data", Functions.timestamp())
-        '''
         with open("Data/CIS MULE 01.csv") as csvfile:
             import_mule(csv.reader(csvfile), 1)
         with open("Data/CIS MULE 02.csv") as csvfile:
             import_mule(csv.reader(csvfile), 2)
-        '''
         with open("Data/CIS MULE 03.csv") as csvfile:
             import_mule(csv.reader(csvfile), 3)
         cProfile.run('parser()')
@@ -360,25 +358,17 @@ def redraw_plots():
     return None
 
 
-REPARSE_DATA = True
+REPARSE_DATA = False
 RECALCULATE_EP = False
 RECALCULATE_WP = False
-RECALCULATE_FG = False
+RECALCULATE_FG = True
 DRAW_PLOTS = True
 
 
-reparse()
-for game in Globals.gamelist:
-    game.EPA_FN()
-    for p, play in enumerate(game.playlist):
-        if play.DOWN == 0:
-            if play.YDLINE > 35:
-                if play.ODK == "FG":
-                    print(play.MULE, play.DEFENSE, game.playlist[p - 1].playdesc)
-
-#recalc_ep()
-#recalc_wp()
-#recalc_fg()
+cProfile.run('reparse()')
+cProfile.run('recalc_ep()')
+cProfile.run('recalc_wp()')
+cProfile.run('recalc_fg()')
 #redraw_plots()
 
 

@@ -200,8 +200,7 @@ def EP_classification():
             model.n_neighbors = int(len(EP_data) ** 0.5)    
 
     outputlist = Functions.fit_models(EP_classification_models, EP_data_x, EP_data_y, 9)
-    outputlist = numpy.flip(outputlist, axis=1)
-    outputlist = outputlist.tolist()
+    outputlist = numpy.flip(outputlist, axis=1, where=outputlist).tolist()
     
     for game in Globals.gamelist:
         for play in game.playlist:
