@@ -294,19 +294,21 @@ def correlation_graph(input_data, ax):
 
 def correlation_values_graph(input_data, ax):
     
-    corr_data = [[] for x in range(201)]
+    corr_data = {}
     for datum in input_data:
-       corr_data[int(round(datum[0] * 10)) + 100].append(datum[1])
+        if round(datum[0], 1) not in corr_data:
+            corr_data[round(datum[0], 1)] = []
+        corr_data[round(datum[0], 1)].append(datum[1])
     xdata = []
     err = []
     ydata = []
-    for d, datum in enumerate(corr_data):
-        if len(datum) > Globals.THRESHOLD:
-            ydata.append(numpy.mean(datum))
+    for datum in sorted(corr_data.keys()):
+        if len(corr_data[datum]) > Globals.THRESHOLD:
+            ydata.append(numpy.mean(corr_data[datum]))
             boot=bootstrap(datum)
             err.append([ydata[-1] - boot[int(Globals.BOOTSTRAP_SIZE * Globals.CONFIDENCE - 1)],
                         boot[int(Globals.BOOTSTRAP_SIZE * (1 - Globals.CONFIDENCE))] - ydata[-1]])
-            xdata.append((d - 100) / 10)
+            xdata.append(datum)
     err = numpy.transpose(err)
     xdata = numpy.array(xdata)
     ydata = numpy.array(ydata)

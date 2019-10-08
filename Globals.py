@@ -112,14 +112,6 @@ score_values = {"FG": scoring_play("FG", 3),
                 "TD": scoring_play("TD", 7),
                 "HALF": scoring_play("HALF", 0)}
 
-'''
-score_bootstraps = {"FG": numpy.empty(BOOTSTRAP_SIZE, dtype=numpy.dtype('Float64')),
-                    "ROUGE": numpy.empty(BOOTSTRAP_SIZE, dtype=numpy.dtype('Float64')),
-                    "SAFETY": numpy.empty(BOOTSTRAP_SIZE, dtype=numpy.dtype('Float64')),
-                    "TD": numpy.empty(BOOTSTRAP_SIZE, dtype=numpy.dtype('Float64')),
-                    "HALF": numpy.empty(BOOTSTRAP_SIZE, dtype=numpy.dtype('Float64'))}
-'''
-
 gamelist = []  # The gamelist holds all the games
 
 # Holds a default value to avoid errors when comparing to None
@@ -127,7 +119,11 @@ DummyArray = numpy.full(BOOTSTRAP_SIZE, -100, dtype='int32')
 
 passerList = []
 receiverList = []
-tacklerList= []
+tacklerList = []
+returnerList = []
+rusherList = []
+kickerList = []
+intercepterList = []
 
 CISTeams = ["SFX", "SMU", "ACA", "MTA", "BIS",
             "SHE", "LAV", "MON", "CON", "MCG",

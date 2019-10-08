@@ -25,7 +25,7 @@ import gc
 import os
 import random
 import cProfile
-print("poop")
+
 
 def import_mule(csvmule, mule):
     '''
@@ -176,6 +176,10 @@ def parser():
                 play.TACKLER_FN()
                 play.PASSER_FN()  # Dependent on RP
                 play.RECEIVER_FN()  # Dependent on RP
+                play.RETURNER_FN()  # Dependent on ODK
+                play.KICKER_FN()
+                play.INTERCEPTER_FN()
+                play.RETURNER_FN()
             game.O_WIN_FN()  # No dependencies
             game.TIME_FN()  # No dependencies
             game.SCORING_PLAY_FN()
@@ -200,12 +204,12 @@ def reparse():
     if REPARSE_DATA:
         print("importing data", Functions.timestamp())
         with open("Data/CIS MULE 01.csv") as csvfile:
-            import_mule(csv.reader(csvfile), 1)
+            import_mule(csv.reader(csvfile, delimiter=';'), 1)
         with open("Data/CIS MULE 02.csv") as csvfile:
-            import_mule(csv.reader(csvfile), 2)
+            import_mule(csv.reader(csvfile, delimiter=';'), 2)
         with open("Data/CIS MULE 03.csv") as csvfile:
-            import_mule(csv.reader(csvfile), 3)
-        cProfile.run('parser()')
+            import_mule(csv.reader(csvfile, delimiter=';'), 3)
+        parser()
         P1DClass.P1D_calculate()
         EPClass.EP_COUNT()
         iterate_scores()
@@ -371,23 +375,42 @@ def create_GUI():
     return None
 
 REPARSE_DATA = True
-RECALCULATE_EP = True
+RECALCULATE_EP = False
 RECALCULATE_WP = False
-RECALCULATE_FG = False
+RECALCULATE_FG = True
 DRAW_PLOTS = True
 CALCULATE_THIRD_DOWN = True
 RUN_GUI = True
 
-print("poo")
 #create_GUI()
 reparse()
-for game in Globals.gamelist:
-    for play in game.playlist:
-        if play.YDLINE - play.DISTANCE > 100:
-            print (play.MULE, play.playdesc)
+print(Globals.passerList)
+print("\n\n\n")
+print(Globals.rusherList)
+print("\n\n\n")
+print(Globals.tacklerList)
+print("\n\n\n")
+print(Globals.returnerList)
+print("\n\n\n")
+print(Globals.receiverList)
+print("\n\n\n")
+print(Globals.kickerList)
+print("\n\n\n")
+print(Globals.intercepterList)
+with open("nameslist.csv", 'wb') as f:
+    # Overwrite the old file with the modified rows
+    writer = csv.writer(f)
+    writer.writerows(Globals.passerList)
+    writer.writerows(Globals.rusherList)
+    writer.writerows(Globals.tacklerList)
+    writer.writerows(Globals.returnerList)
+    writer.writerows(Globals.receiverList)
+    writer.writerows(Globals.kickerList)
+    writer.writerows(Globals.intercepterList)
+
 recalc_ep()
-recalc_wp()
-recalc_fg()
+#recalc_wp()
+#recalc_fg()
 redraw_plots()
 '''
 cProfile.run('reparse()')
@@ -410,13 +433,17 @@ the list of all unique passers and receivers.
 print("ALL DONE", Functions.timestamp())
 
 '''
+# TODO: Make an intercepter function like tackler, rusher, etc.
+
+# TODO: Make a kicker function like tackler, rusher, etc.
+
+# TODO: Join the two tacklers into a single attribute as a list
+
+#TODO: Turn all the player ID attributes into a dictionary
+
 # TODO: Find out if numpy's 'out' parameter can be used to make things go faster
 
 # TODO: Find out if we can use numpy's 'where' parameter to speed things along
-
-# TODO: Add a kick returner function like passer, receiver, tackler
-
-# TODO: Add a rusher function like passer, receiver, tackler
 
 # TODO: Sort out everything related to third down and the big ol calculator
 
