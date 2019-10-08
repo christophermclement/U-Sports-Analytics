@@ -61,11 +61,16 @@ class play():
         self.next_score = None
         self.next_score_is_off = None
 
+        # TODO: Make this into a dictionary
         self.TACKLER_ONE = None
         self.TACKLER_TWO = None
         self.PASSER = None
         self.RECEIVER = None
-        
+        self.RUSHER = None
+        self.KICKER = None
+        self.INTERCEPTER = None
+        self.RETURNER = None
+
         self.puntGross = None
         self.puntNet = None
         self.puntSpread = None
@@ -322,13 +327,10 @@ class play():
                 # TODO: SHould this be changed to the offense team abbr?
                 self.PASSER = "TEAM"
             else:
-                self.PASSER = self.playdesc[:self.playdesc.find("pass ") - 1]
+                self.PASSER = self.playdesc[:self.playdesc.find("pass ")]
                 for x in range(3):
-                    if "," in self.PASSER:
-                        # Removing the stuff that might come before the passer
-                        self.PASSER = self.PASSER[self.PASSER.find(",") + 1:]
-                if ":" in self.PASSER:  # removing timestamps
-                    self.PASSER = self.PASSER[self.PASSER.find(":") + 3:]
+                    self.PASSER = self.PASSER[self.PASSER.find(",") + 1:] if "," in self.PASSER else self.PASSER
+                    self.PASSER = self.PASSER[self.PASSER.find(":") + 3:] if ":" in self.PASSER else self.PASSER
                 self.PASSER = self.PASSER.strip()
             # TODO: UNCOMMENT THESE LINES AND THOSE IN MASTER TO SEE THE LIST OF UNIQUE RECEIVERS FOR CLEANUP
             if self.PASSER not in Globals.passerList:
@@ -361,6 +363,59 @@ class play():
             if self.RECEIVER not in Globals.receiverList:
                 Globals.receiverList.append(self.RECEIVER)
         return None
+
+    def RETURNER_FN(self):
+        '''
+        like tackler et al we want to figure out who returned the kick
+        '''
+        if self.ODK in ["P", "FG", "KO"]:
+            if "return" in self.playdesc:
+                self.RETURNER = self.playdesc[:self.playdesc.find(" return")]  # cuts out everything after the word "return"
+                self.RETURNER = self.RETURNER[self.RETURNER.find(",") + 1:] if "," in self.RETURNER else self.RETURNER
+                self.RETURNER = self.RETURNER.strip()
+                if self.RETURNER not in Globals.returnerList:
+                    Globals.returnerList.append(self.RETURNER)
+        return None
+
+    def RUSHER_FN(self):
+        if self.RP == "R":
+            self.RUSHER = self.playdesc[:self.playdesc.find(" rush")]  # cuts out everything after "rush"
+            self.RUSHER = self.playdesc[self.RUSHER.find(","):] if "," in self.RUSHER else self.RUSHER
+            if self.RUSHER not in Globals.rusherList:
+                Globals.rusherList.append(self.RUSHER)
+        # TODO: Are there any documented scrambles??
+        return None
+
+    def KICKER_FN(self):
+        if self.ODK in ["P", "FG", "KO"]:
+            if self.ODK == "KO":
+                self.KICKER = self.playdesc
+                self.KICKER = self.KICKER[:self.KICKER.find("kickoff")]
+                self.KICKER= self.KICKER[self.KICKER.find(",") + 1:] if "," in self.KICKER else self.KICKER
+                self.KICKER = self.KICKER.strip()
+            elif self.ODK == "P":
+                self.KICKER = self.playdesc
+                self.KICKER = self.KICKER[:self.KICKER.find("punt")]
+                self.KICKER= self.KICKER[self.KICKER.find(",") + 1:] if "," in self.KICKER else self.KICKER
+                self.KICKER = self.KICKER.strip()
+            elif self.ODK == "FG":
+                self.KICKER = self.playdesc
+                self.KICKER = self.KICKER[:self.KICKER.find("kick")] if "kick" in self.KICKER else self.KICKER
+                self.KICKER = self.KICKER[:self.KICKER.find("field goal")] if "kick" in self.KICKER else self.KICKER
+                self.KICKER= self.KICKER[self.KICKER.find(",") + 1:] if "," in self.KICKER else self.KICKER
+                self.KICKER = self.KICKER.strip()
+            if self.KICKER not in Globals.kickerList:
+                Globals.kickerList.append(self.KICKER)
+        return None
+
+    def INTERCEPTER_FN(self):
+        if self.P_RSLT == "X":
+            self.INTERCEPTER = self.playdesc
+            self.INTERCEPTER = self.INTERCEPTER[self.INTERCEPTER.find("intercepted") + 15:]
+            self.INTERCEPTER = self.playdesc[self.INTERCEPTER.find(","):] if "," in self.INTERCEPTER else self.INTERCEPTER
+            if self.INTERCEPTER not in Globals.intercepterList:
+                Globals.intercepterList.append(self.INTERCEPTER)
+
 
     def puntGross_FN(self):
         '''

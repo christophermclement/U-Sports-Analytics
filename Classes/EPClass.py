@@ -108,10 +108,10 @@ EP_regression_models = []
 EP_regression_models.append(sklearn.neural_network.MLPRegressor(max_iter=1000, hidden_layer_sizes=Globals.neural_network, warm_start=True))
 #EP_regression_models.append(sklearn.ensemble.GradientBoostingRegressor(n_estimators=Globals.forest_trees, warm_start=True))
 EP_regression_models.append(sklearn.linear_model.SGDRegressor(warm_start=True))
-EP_regression_models.append(sklearn.linear_model.Lasso(warm_start=True))
-#EP_regression_models.append(sklearn.linear_model.ElasticNet(warm_start=True))
+#EP_regression_models.append(sklearn.linear_model.Lasso(warm_start=True))
+EP_regression_models.append(sklearn.linear_model.ElasticNet(warm_start=True))
 #EP_regression_models.append(sklearn.linear_model.Ridge())
-EP_regression_models.append(sklearn.ensemble.AdaBoostRegressor())
+EP_regression_models.append(sklearn.ensemble.AdaBoostRegressor(n_estimators=Globals.forest_trees))
 #EP_regression_models.append(sklearn.kernel_ridge.KernelRidge())
 EP_regression_models.append(sklearn.linear_model.BayesianRidge())
 
