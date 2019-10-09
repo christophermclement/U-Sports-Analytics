@@ -305,7 +305,7 @@ def correlation_values_graph(input_data, ax):
     for datum in sorted(corr_data.keys()):
         if len(corr_data[datum]) > Globals.THRESHOLD:
             ydata.append(numpy.mean(corr_data[datum]))
-            boot=bootstrap(datum)
+            boot=bootstrap(corr_data[datum])
             err.append([ydata[-1] - boot[int(Globals.BOOTSTRAP_SIZE * Globals.CONFIDENCE - 1)],
                         boot[int(Globals.BOOTSTRAP_SIZE * (1 - Globals.CONFIDENCE))] - ydata[-1]])
             xdata.append(datum)

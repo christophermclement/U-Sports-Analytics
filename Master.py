@@ -179,7 +179,7 @@ def parser():
                 play.RETURNER_FN()  # Dependent on ODK
                 play.KICKER_FN()
                 play.INTERCEPTER_FN()
-                play.RETURNER_FN()
+                play.RUSHER_FN()
             game.O_WIN_FN()  # No dependencies
             game.TIME_FN()  # No dependencies
             game.SCORING_PLAY_FN()
@@ -374,7 +374,7 @@ def create_GUI():
     GUI.create_main_menu()
     return None
 
-REPARSE_DATA = True
+REPARSE_DATA = False
 RECALCULATE_EP = False
 RECALCULATE_WP = False
 RECALCULATE_FG = True
@@ -384,30 +384,6 @@ RUN_GUI = True
 
 #create_GUI()
 reparse()
-print(Globals.passerList)
-print("\n\n\n")
-print(Globals.rusherList)
-print("\n\n\n")
-print(Globals.tacklerList)
-print("\n\n\n")
-print(Globals.returnerList)
-print("\n\n\n")
-print(Globals.receiverList)
-print("\n\n\n")
-print(Globals.kickerList)
-print("\n\n\n")
-print(Globals.intercepterList)
-with open("nameslist.csv", 'wb') as f:
-    # Overwrite the old file with the modified rows
-    writer = csv.writer(f)
-    writer.writerows(Globals.passerList)
-    writer.writerows(Globals.rusherList)
-    writer.writerows(Globals.tacklerList)
-    writer.writerows(Globals.returnerList)
-    writer.writerows(Globals.receiverList)
-    writer.writerows(Globals.kickerList)
-    writer.writerows(Globals.intercepterList)
-
 recalc_ep()
 #recalc_wp()
 #recalc_fg()
@@ -433,13 +409,9 @@ the list of all unique passers and receivers.
 print("ALL DONE", Functions.timestamp())
 
 '''
-# TODO: Make an intercepter function like tackler, rusher, etc.
-
-# TODO: Make a kicker function like tackler, rusher, etc.
-
 # TODO: Join the two tacklers into a single attribute as a list
 
-#TODO: Turn all the player ID attributes into a dictionary
+# TODO: Turn all the player ID attributes into a dictionary
 
 # TODO: Find out if numpy's 'out' parameter can be used to make things go faster
 
