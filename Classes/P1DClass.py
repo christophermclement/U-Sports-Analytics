@@ -198,3 +198,53 @@ def teamseason():
     plt.show()
     gc.collect()
     return None
+
+def rushing_test():
+    '''
+    This sub is to test the idea of what happens if you let rushing avg ypc get too high. We make a huge array of all the rushing gains ever, then randomly sample 1000
+    '''
+    print("Testing rushing average hypothesis", Functions.timestamp())
+    rushing_gains = []
+    averages = []
+    drive_gains = []
+    lower_limit = 3.4
+    upper_limit = 8.5
+    for game in Globals.gamelist:
+        for play in game.playlist:
+            if play.RP == "R":
+                rushing_gains.append(play.GAIN)
+
+    print("\tRushing list prepared with length", len(rushing_gains))
+    rushing_gains = numpy.array(rushing_gains)
+    for avg in numpy.arange(lower_limit, upper_limit, 0.1):
+        print("\tpreparing for rushing average", avg, Functions.timestamp())
+        while True:
+            temp = numpy.random.choice(rushing_gains, 150, True)
+            if numpy.round(numpy.mean(temp), 1) == numpy.round(avg, 1):
+                break
+            else:
+                print(numpy.mean(temp), end='\r')
+        averages.append(temp)
+    averages = numpy.array(averages)
+    print("\tPredicting average drive lengths", Functions.timestamp())
+    for gain_list in averages:
+        temp = []
+        for x in range(1000):
+            down = 1
+            distance = 10
+            drive = 0
+            while True:
+                gain = numpy.random.choice(gain_list, 1)
+                down += 1
+                distance -= gain
+                drive += gain
+                if distance < 0:
+                    distance = 10
+                    down = 1
+                elif down == 4:
+                    break
+            temp.append(drive)
+        drive_gains.append(temp)
+
+    for gain, average in zip(drive_gains, numpy.arange(lower_limit, upper_limit, 0.1)):
+        print("Average gain of", average, "yards, average drive length", numpy.mean(gain), "yards, stdev", numpy.std(gain), "yards")

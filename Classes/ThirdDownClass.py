@@ -55,7 +55,7 @@ class go_for_it():
         self.yardline = yardline
         self.P1D = P1DClass.P1D_ARRAY[3][self.distance] if self.distance > self.yardline else P1DClass.P1D_GOAL_ARRAY[3][self.distance]
         self.EP_success = EPClass.EP_ARRAY[1][self.yardline - self.distance][self.yardline - self.distance] if self.distance == self.yardline else EPClass.EP_ARRAY[1][10][self.yardline - self.distance]
-        self.EP_fail = (EPClass.EP_ARRAY[1][110 - self.yardline][110 - self.yardline] if self.yardline > 100 else EPClass.EP_ARRAY[1][10][110 - yardline])
+        #self.EP_fail = (EPClass.EP_ARRAY[1][110 - self.yardline][110 - self.yardline] if self.yardline > 100 else EPClass.EP_ARRAY[1][10][110 - self.yardline])
 
     def bootstrap(self):
         success_temp = Globals.score_bootstraps["TD"] if self.distance == self.yardline else numpy.repeat(self.EP_success.BOOTSTRAP, Globals.BOOTSTRAP_SIZE)

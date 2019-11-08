@@ -83,6 +83,9 @@ class play():
         self.EP_regression_list = []
         self.EP_classification_list = []
         self.EP_classification_values = []
+        self.EP_ensemble_list = []
+        self.EP_ensemble_values = []
+        self.EP_ensemble = []
 
         self.raw_EPA = None
         self.EPA_regression_list = []
@@ -151,7 +154,7 @@ class play():
         # No error-check, phrases are in playdesc or not
         if any(x in self.playdesc for x in ["pass", "sack", "scramble"]):
             self.RP = "P"
-        elif "rush" in self.playdesc:
+        elif " rush" in self.playdesc:
             self.RP = "R"
         return None
 
@@ -186,9 +189,9 @@ class play():
         '''
         try:
             if self.MULE == 1:  # String interpretation for each data format
-                self.FPOS = numpy.negative(int(self.DD[-2:]), dtype='int8') if self.DD[-5:-2] == self.defense_offense[1] else numpy.int(int(self.DD[-2:]))
+                self.FPOS = numpy.negative(int(self.DD[-2:]), dtype='int8') if self.DD[-5:-2] == self.defense_offense[1].name else numpy.int(int(self.DD[-2:]))
             elif self.MULE == 2:
-                self.FPOS = numpy.negative(int(self.SPOT[-2:]), dtype='int8') if self.SPOT[:3] == self.defense_offense[1] else numpy.int(int(self.SPOT[-2:]))
+                self.FPOS = numpy.negative(int(self.SPOT[-2:]), dtype='int8') if self.SPOT[:3] == self.defense_offense[1].name else numpy.int(int(self.SPOT[-2:]))
             elif self.MULE == 3:
                 self.FPOS = numpy.negative(int(self.DD[-2:]), dtype='int8') if self.DD[0] == self.DD[-3] else numpy.int(int(self.DD[-2:]))
             if self.FPOS == -55:  # at midfield we define as positive
@@ -308,12 +311,15 @@ class play():
         variations, and hope that gets the total list under control.
         '''
         if "(" in self.playdesc:
-            TACKLERS = self.playdesc[self.playdesc.find("(") + 1 : self.playdesc.find(")")]
+            TACKLERS = self.playdesc[self.playdesc.find("(") + 1 :]
+            TACKLERS = TACKLERS[:TACKLERS.find(")")] if ")" in TACKLERS else TACKLERS
             if ";" in TACKLERS:
-                self.TACKLER_ONE = TACKLERS[: TACKLERS.find(";")]
-                self.TACKLER_TWO = TACKLERS[TACKLERS.find(";") + 1 :]
+                self.TACKLER_ONE = TACKLERS[:TACKLERS.find(";")].strip()
+                self.TACKLER_TWO = TACKLERS[TACKLERS.find(";") + 1 :].strip()
+            elif "blocked by" in TACKLERS:
+                pass
             else:
-                self.TACKLER_ONE = TACKLERS
+                self.TACKLER_ONE = TACKLERS.strip()
         return None
 
     def PASSER_FN(self):
@@ -329,7 +335,7 @@ class play():
                 self.PASSER = self.playdesc[:self.playdesc.find("pass ")]
                 for x in range(3):
                     self.PASSER = self.PASSER[self.PASSER.find(",") + 1:] if "," in self.PASSER else self.PASSER
-                    self.PASSER = self.PASSER[self.PASSER.find(":") + 3:] if ":" in self.PASSER else self.PASSER
+                    self.PASSER = self.PASSER[self.PASSER.find(":") + 4:] if ":" in self.PASSER else self.PASSER
                 self.PASSER = self.PASSER.strip()
             # TODO: UNCOMMENT THESE LINES AND THOSE IN MASTER TO SEE THE LIST OF UNIQUE RECEIVERS FOR CLEANUP
         return None
@@ -344,17 +350,12 @@ class play():
         '''
         if "complete to" in self.playdesc and self.RP == "P":
             self.RECEIVER = self.playdesc[self.playdesc.find("complete to") + 11:]
-            # This will do for completions
-            self.RECEIVER = self.RECEIVER[:self.RECEIVER.find(" for ")] if " for " in self.RECEIVER else self.RECEIVER
-            # This will do for penalties
+            self.RECEIVER = self.RECEIVER[:self.RECEIVER.find(" for ")] if " for " in self.RECEIVER else self.RECEIVER  # This will do for completions
             self.RECEIVER = self.RECEIVER[:self.RECEIVER.find(",")] if "," in self.RECEIVER else self.RECEIVER
-            # This will do for incompletions with defenders involved
-            self.RECEIVER = self.RECEIVER[:self.RECEIVER.find("(")] if "(" in self.RECEIVER else self.RECEIVER
-            # Cuts out penalties
-            self.RECEIVER = self.RECEIVER[:self.RECEIVER.find(". PENALTY")] if ". PENALTY" in self.RECEIVER else self.RECEIVER
-            # remove trailing periods
-            self.RECEIVER = self.RECEIVER[:-1] if self.RECEIVER[-1] == "." else self.RECEIVER
-            # This will do for incompletions without defenders involved
+            self.RECEIVER = self.RECEIVER[:self.RECEIVER.find("(")] if "(" in self.RECEIVER else self.RECEIVER  # This will do for incompletions with defenders involved
+            self.RECEIVER = self.RECEIVER[:self.RECEIVER.find(". PENALTY")] if ". PENALTY" in self.RECEIVER else self.RECEIVER  # Handles plays that have penalties
+            self.RECEIVER = self.RECEIVER[:self.RECEIVER.find(":") - 3] if ":" in self.RECEIVER else self.RECEIVER  # Deals with trailing clock statements
+            self.RECEIVER = self.RECEIVER[:-1] if self.RECEIVER[-1] == "." else self.RECEIVER  # Remove trailing periods
             self.RECEIVER = self.RECEIVER.strip()
             # TODO: UNCOMMENT THESE LINES AND THOSE IN MASTER TO SEE THE LIST OF UNIQUE RECEIVERS FOR CLEANUP
         return None
@@ -364,38 +365,49 @@ class play():
         like tackler et al we want to figure out who returned the kick
         '''
         if self.ODK in ["P", "FG", "KO"]:
-            if "return" in self.playdesc:
-                self.RETURNER = self.playdesc[:self.playdesc.find(" return")]  # cuts out everything after the word "return"
-                self.RETURNER = self.RETURNER[self.RETURNER.find("yards") + 1:] if "yards" in self.RETURNER else self.RETURNER
-                self.RETURNER = self.RETURNER[self.RETURNER.find(",") + 1:] if "," in self.RETURNER else self.RETURNER
-                self.RETURNER = self.RETURNER.strip()
+            if not(self.ODK == "P" and self.score_play == "SAFETY" and self.score_play_is_off == True):
+
+                if "return" in self.playdesc:
+                    self.RETURNER = self.playdesc
+                    self.RETURNER = self.RETURNER[:self.RETURNER.find(" return")]  if " return" in self.RETURNER else self.RETURNER  # cuts out everything after the word "return"
+                    self.RETURNER = self.RETURNER[:self.RETURNER.find(" recover")]  if " recover" in self.RETURNER else self.RETURNER  # cuts out everything after the word "recover" in the event of blocked punts
+                    self.RETURNER = self.RETURNER[self.RETURNER.find("yards") + 1:] if "yards" in self.RETURNER else self.RETURNER
+                    self.RETURNER = self.RETURNER[self.RETURNER.find(" at ") + 1:] if " at " in self.RETURNER else self.RETURNER  # for blocks
+                    self.RETURNER = self.RETURNER[self.RETURNER.find(":") + 4:]
+                    for x in range(3):
+                        self.RETURNER = self.RETURNER[self.RETURNER.find(",") + 1:] if "," in self.RETURNER else self.RETURNER
+                    self.RETURNER = self.RETURNER.strip()
         return None
 
     def RUSHER_FN(self):
         if self.RP == "R":
             self.RUSHER = self.playdesc
             self.RUSHER = self.RUSHER[:self.RUSHER.find(" rush")]  # cuts out everything after "rush"
+            self.RUSHER = self.RUSHER[self.RUSHER.find(":") + 4:] if ":" in self.RUSHER else self.RUSHER  # handles clock statements
+            self.RUSHER = self.RUSHER[self.RUSHER.find(",") + 1:] if "," in self.RUSHER else self.RUSHER
+            self.RUSHER = self.RUSHER[self.RUSHER.find(",") + 1:] if "," in self.RUSHER else self.RUSHER
+            self.RUSHER = self.RUSHER.strip()
         # TODO: Are there any documented scrambles??
         return None
 
     def KICKER_FN(self):
         if self.ODK in ["P", "FG", "KO"]:
-            if self.ODK == "KO":
-                self.KICKER = self.playdesc
-                self.KICKER = self.KICKER[:self.KICKER.find("kickoff")]
-                self.KICKER= self.KICKER[self.KICKER.find(",") + 1:] if "," in self.KICKER else self.KICKER
-                self.KICKER = self.KICKER.strip()
-            elif self.ODK == "P":
-                self.KICKER = self.playdesc
-                self.KICKER = self.KICKER[:self.KICKER.find("punt")]
-                self.KICKER= self.KICKER[self.KICKER.find(",") + 1:] if "," in self.KICKER else self.KICKER
-                self.KICKER = self.KICKER.strip()
-            elif self.ODK == "FG":
-                self.KICKER = self.playdesc
-                self.KICKER = self.KICKER[:self.KICKER.find("kick")] if "kick" in self.KICKER else self.KICKER
-                self.KICKER = self.KICKER[:self.KICKER.find("field goal")] if "field goal" in self.KICKER else self.KICKER
-                #self.KICKER= self.KICKER[self.KICKER.find(",") + 1:] if "," in self.KICKER else self.KICKER
-                self.KICKER = self.KICKER.strip()
+            if not(self.ODK == "P" and self.score_play == "SAFETY" and self.score_play_is_off):
+                if "FAKE" not in self.playdesc and self.RP is None:
+                    if self.ODK == "KO":
+                        self.KICKER = self.playdesc
+                        self.KICKER = self.KICKER[:self.KICKER.find("kickoff")]                        
+                    elif self.ODK == "P":
+                        self.KICKER = self.playdesc
+                        self.KICKER = self.KICKER[:self.KICKER.find("punt")]
+                    elif self.ODK == "FG":
+                        self.KICKER = self.playdesc
+                        self.KICKER = self.KICKER[:self.KICKER.find("kick")] if "kick" in self.KICKER else self.KICKER
+                        self.KICKER = self.KICKER[:self.KICKER.find("field goal")] if "field goal" in self.KICKER else self.KICKER
+                    self.KICKER = self.KICKER[self.KICKER.find(",") + 1:] if "," in self.KICKER else self.KICKER
+                    if ":" in self.KICKER:
+                        self.KICKER= self.KICKER[self.KICKER.find(":") + 4:]  # handles clock statements
+                    self.KICKER = self.KICKER.strip()
         return None
 
     def INTERCEPTER_FN(self):
@@ -403,7 +415,7 @@ class play():
             self.INTERCEPTER = self.playdesc
             self.INTERCEPTER = self.INTERCEPTER[self.INTERCEPTER.find("intercepted") + 15:]
             self.INTERCEPTER = self.INTERCEPTER[:self.INTERCEPTER.find(" at ")]
-            self.INTERCEPTER = self.playdesc[:self.INTERCEPTER.find(",")] if "," in self.INTERCEPTER else self.INTERCEPTER
+            self.INTERCEPTER = self.INTERCEPTER[:self.INTERCEPTER.find(",")] if "," in self.INTERCEPTER else self.INTERCEPTER
             self.INTERCEPTER = self.INTERCEPTER.strip()
 
 

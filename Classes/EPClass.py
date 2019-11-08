@@ -18,8 +18,12 @@ import sklearn.neural_network
 import sklearn.svm
 import sklearn.kernel_ridge
 import scipy.optimize
+import sklearn.naive_bayes
+import sklearn.gaussian_process
+import sklearn.discriminant_analysis
 from sklearn.model_selection import KFold
 import csv
+import random
 
 
 class EP():
@@ -58,6 +62,8 @@ class EP():
         self.EP_regression_list = []
         self.EP_classification_list = []  # These are the actual output probabilities for the classification models
         self.EP_classification_values = []  # These are the probabilities converted to EP values. 
+        self.EP_ensemble_list = []
+        self.EP_ensemble_values = []
 
     def binom(self):
         '''
@@ -96,9 +102,24 @@ class EP():
 EP_ARRAY = [[[EP(down, distance, yardline) for yardline in range(111)] for distance in range(111)] for down in range(4)]
 
 EP_classification_models = []
+# Rejected models
 #EP_classification_models.append(sklearn.linear_model.LogisticRegression(multi_class='multinomial', solver='saga', max_iter=10000))
-#EP_classification_models.append(sklearn.neighbors.KNeighborsClassifier())
 #EP_classification_models.append(sklearn.ensemble.RandomForestClassifier(n_estimators=Globals.forest_trees, n_jobs=-1))
+#EP_classification_models.append(sklearn.naive_bayes.BernoulliNB())  # Junk
+#EP_classification_models.append(sklearn.naive_bayes.GaussianNB())  # Bad model
+#EP_classification_models.append(sklearn.gaussian_process.GaussianProcessClassifier())  # Memory error?
+#EP_classification_models.append(sklearn.svm.SVC(multi_class="crammer_singer"))  # Too slow to fit
+#EP_classification_models.append(sklearn.ensemble.AdaBoostClassifier())  # Junk
+#EP_classification_models.append(sklearn.discriminant_analysis.QuadraticDiscriminantAnalysis())  # Bad model
+#EP_classification_models.append(sklearn.gaussian_process.kernels.RBF())  # No predict_proba
+#EP_classification_models.append(sklearn.neighbors.NearestCentroid())  # No predict_proba
+#EP_classification_models.append(sklearn.linear_model.PassiveAggressiveClassifier())  # No predict_proba
+#EP_classification_models.append(sklearn.linear_model.RidgeClassifier())  # No predict_proba
+#EP_classification_models.append(sklearn.linear_model.SGDClassifier())  # No predict_proba
+#EP_classification_models.append(sklearn.linear_model.Perceptron())  # No predict_proba
+
+#Good models
+EP_classification_models.append(sklearn.neighbors.KNeighborsClassifier())
 EP_classification_models.append(sklearn.neural_network.MLPClassifier(max_iter=1000, hidden_layer_sizes=Globals.neural_network, warm_start=True))
 EP_classification_models.append(sklearn.ensemble.GradientBoostingClassifier(n_estimators=Globals.forest_trees, warm_start=True))
 
@@ -114,6 +135,8 @@ EP_regression_models.append(sklearn.linear_model.ElasticNet(warm_start=True))
 EP_regression_models.append(sklearn.ensemble.AdaBoostRegressor(n_estimators=Globals.forest_trees))
 #EP_regression_models.append(sklearn.kernel_ridge.KernelRidge())
 EP_regression_models.append(sklearn.linear_model.BayesianRidge())
+
+EP_ensemble_models = []
 
 def EP_regression():
     '''
@@ -164,9 +187,7 @@ def EP_regression():
                 else:
                     EP_data_x.append([ydline.DOWN, ydline.DISTANCE, ydline.YDLINE])
     EP_data_x = numpy.array(EP_data_x)
-    print(EP_data_x)
     outputlist = numpy.flip(numpy.array([model.predict(EP_data_x).tolist() for model in EP_regression_models]), axis=1).tolist()
-    print(outputlist)
     for down in EP_ARRAY:
         for distance in down:
             for yardline in distance:
@@ -210,11 +231,11 @@ def EP_classification():
             model.n_neighbors = int(len(EP_data) ** 0.5)    
 
     outputlist = Functions.fit_models(EP_classification_models, EP_data_x, EP_data_y, 9)
-    outputlist = numpy.flip(outputlist, axis=1, where=outputlist).tolist()
+    outputlist = numpy.flip(outputlist, axis=1).tolist()
     
     for game in Globals.gamelist:
         for play in game.playlist:
-            play.EP_classification_list = [x.pop() for x in outputlist]
+            play.EP_classification_list = [x.pop() for x in outputlist]  # Assigns each play its predictions
             play.EP_classification_values = [sum([prob * Globals.score_values[score[0]].EP[1] * (1 if score[1] else -1) for prob, score in zip(model, Globals.alpha_scores)]) for model in play.EP_classification_list]
             EP_ARRAY[play.DOWN][play.DISTANCE][play.YDLINE].EP_classification_list.append(play.EP_classification_list)
 
@@ -225,18 +246,21 @@ def EP_classification():
             for ydline in distance:
                 if ydline.EP_classification_list:
                     ydline.EP_classification_list = numpy.mean(numpy.array(ydline.EP_classification_list), axis = 0).tolist()
-                elif ydline.DISTANCE > ydline.YDLINE or ydline.YDLINE - ydline.DISTANCE < 100:
+                elif ydline.DISTANCE > ydline.YDLINE or ydline.YDLINE - ydline.DISTANCE > 100:
                     ydline.EP_classification_list = numpy.full((len(EP_classification_models), 9), numpy.nan)
                 else:
                     EP_data_x.append([ydline.DOWN, ydline.DISTANCE, ydline.YDLINE])
-                ydline.EP_classification_values = [sum([prob * Globals.score_values[score[0]].EP[1] * (1 if score[1] else -1) for prob, score in zip(model, Globals.alpha_scores)]) for model in play.EP_classification_list]
+                ydline.EP_classification_values = [sum([prob * Globals.score_values[score[0]].EP[1] * (1 if score[1] else -1) for prob, score in zip(model, Globals.alpha_scores)]) for model in ydline.EP_classification_list]
     outputlist = numpy.flip(numpy.array([model.predict_proba(EP_data_x).tolist() for model in EP_classification_models]), axis=1).tolist()
     for down in EP_ARRAY:
         for distance in down:
             for ydline in distance:
                 if ydline.EP_classification_list == []:
                     ydline.EP_classification_list = [model.pop() for model in outputlist]
+                    ydline.EP_classification_values = [sum([prob * Globals.score_values[score[0]].EP[1] * (1 if score[1] else -1) for prob, score in zip(model, Globals.alpha_scores)]) for model in ydline.EP_classification_list]
     print("\tArray populated", Functions.timestamp())
+
+    print([ydline.EP_classification_values for ydline in EP_ARRAY[1][10]])
 
     Functions.printFeatures(EP_classification_models)
     return None
@@ -287,7 +311,7 @@ def raw_EP_plots():
     '''
     print("Building raw EP graphs", Functions.timestamp())
 
-    xdata = numpy.arange(1, 110)
+    xdata = numpy.arange(1, 111)
     ydata=[]
     err=[]
     
@@ -307,12 +331,12 @@ def raw_EP_plots():
     R2 = Functions.RSquared(Functions.linearFit, fit, xdata, ydata)
     fig, ax = plt.subplots(1, 1, figsize=(5, 5))
     ax.errorbar(xdata, ydata, yerr=err, fmt='x', color='green', ms=3)
-    plt.plot(numpy.arange(110), Functions.linearFit(numpy.arange(110), *fit),
+    plt.plot(numpy.arange(111), Functions.linearFit(numpy.arange(111), *fit),
              color='green', label="y={0:5.4g}x+{1:5.4g}\nRMSE={2:5.4g}, R^2={3:5.4g}".format(*fit, rmse, R2))
     ax.set(xlabel="Yardline", ylabel="EP")
     ax.grid(True)
     ax.legend()
-    ax.axis([0, 110, -2, 7])
+    ax.axis([0, 111, -2, 7])
     fig.suptitle("EP for 1st & 10 by Yardline, Raw Data")
     fig.savefig("Figures/EP/EP(1st&10), Raw Data", dpi=1000)
     plt.close('all')
@@ -341,7 +365,7 @@ def raw_EP_plots():
                   + " Down by Distance and Yardline,\nRaw Data")
         ax.set(xlabel="Yardline", ylabel="Distance")
         ax.grid()
-        ax.axis([0, 110, 0, 25])
+        ax.axis([0, 111, 0, 25])
         fig.colorbar(mappable, ax=ax)
         fig.savefig("Figures/EP/Raw EP(" + str(down) + " down) Raw", dpi=1000)
         plt.close('all')
@@ -357,13 +381,13 @@ def EP_regression_plots():
 
     for m, model in enumerate(EP_regression_models):
         print("\tBuilding graph for " + type(model).__name__, Functions.timestamp())
-        xdata = numpy.arange(1, 110)
+        xdata = numpy.arange(1, 111)
         ydata=[]
     
         for YDLINE in range(1, 10):
-            ydata.append(EP_ARRAY[1][YDLINE][YDLINE].EP[1])
-        for YDLINE in EP_ARRAY[1][10][10:110]:
-            ydata.append(YDLINE.EP_regression_list[m])
+            ydata.append(EP_ARRAY[1][YDLINE][YDLINE].EP_regression_list[m])
+        for YDLINE in range(10, 110):
+            ydata.append(EP_ARRAY[1][10][YDLINE].EP_regression_list[m])
         xdata = numpy.array(xdata)
         ydata = numpy.array(ydata)
 
@@ -372,12 +396,12 @@ def EP_regression_plots():
         R2 = Functions.RSquared(Functions.linearFit, fit, xdata, ydata)
         fig, ax = plt.subplots(1, 1, figsize=(5, 5))
         ax.errorbar(xdata, ydata, fmt='x', color='green', ms=3)
-        ax.plot(numpy.arange(110), Functions.linearFit(numpy.arange(110), *fit),
+        ax.plot(numpy.arange(111), Functions.linearFit(numpy.arange(111), *fit),
                  color='green', label="y={0:5.4g}x+{1:5.4g}\nRMSE={2:5.4g}, R^2={3:5.4g}".format(*fit, rmse, R2))
         ax.set(xlabel="Yardline", ylabel="EP")
         ax.grid(True)
         ax.legend()
-        ax.axis([0, 110, -2, 7])
+        ax.axis([0, 111, -2, 7])
         fig.suptitle("EP for 1st & 10 by Yardline,\n" + type(model).__name__)
         fig.savefig("Figures/EP/EP(1st&10), " + type(model).__name__, dpi=1000)
         plt.close('all')
@@ -394,7 +418,7 @@ def EP_regression_plots():
                       + " Down by Distance and Yardline,\n" + type(model).__name__)
             ax.set(xlabel="Yardline", ylabel="Distance")
             ax.grid()
-            ax.axis([0, 110, 0, 25])
+            ax.axis([0, 111, 0, 25])
             fig.colorbar(mappable, ax=ax)
             fig.savefig("Figures/EP/EP(" + str(down) + " down) " + type(model).__name__, dpi=1000)
             plt.close('all')
@@ -409,11 +433,11 @@ def EP_classification_plots():
     print("Building EP classification correlation graphs", Functions.timestamp())
     for m, model in enumerate(EP_classification_models):
         print("\tBuilding graph for " + type(model).__name__, Functions.timestamp())
-        xdata = numpy.arange(1, 110)
+        xdata = numpy.arange(1, 111)
         ydata=[]
     
         for YDLINE in range(1, 10):
-            ydata.append(EP_ARRAY[1][YDLINE][YDLINE].EP[1])
+            ydata.append(EP_ARRAY[1][YDLINE][YDLINE].EP_classification_values[m])
         for YDLINE in EP_ARRAY[1][10][10:]:
             ydata.append(YDLINE.EP_classification_values[m])
         xdata = numpy.array(xdata)
@@ -424,12 +448,12 @@ def EP_classification_plots():
         R2 = Functions.RSquared(Functions.linearFit, fit, xdata, ydata)
         fig, ax = plt.subplots(1, 1, figsize=(5, 5))
         ax.errorbar(xdata, ydata, fmt='x', color='green', ms=3)
-        plt.plot(numpy.arange(110), Functions.linearFit(numpy.arange(110), *fit),
+        plt.plot(numpy.arange(111), Functions.linearFit(numpy.arange(111), *fit),
                  color='green', label="y={0:5.4g}x+{1:5.4g}\nRMSE={2:5.4g}, R^2={3:5.4g}".format(*fit, rmse, R2))
         ax.set(xlabel="Yardline", ylabel="EP")
         ax.grid(True)
         ax.legend()
-        ax.axis([0, 110, -2, 7])
+        ax.axis([0, 111, -2, 7])
         fig.suptitle("EP for 1st & 10 by Yardline,\n" + type(model).__name__)
         fig.savefig("Figures/EP/EP(1st&10), " + type(model).__name__, dpi=1000)
         plt.close('all')
@@ -634,6 +658,62 @@ def EP_classification_values_correlation():
         gc.collect()
 
 
+def EP_values_correlation(model_list, attribute):
+    '''
+    combines several different functions to handle the classification values, regression, and ensemble values
+    '''
+    print("creating correlation graphs for", attribute, Functions.timestamp())
+    data=[]
+    for game in Globals.gamelist:
+        for play in game.playlist:
+            data.append([list(getattr(play, attribute)), [(Globals.score_values[play.next_score].EP[1] * (1 if play.next_score_is_off else -1)), play.QUARTER, play.DOWN, play.offense_is_home]])
+
+    print("\tBuilding graphs by model", Functions.timestamp())
+    for m, model in enumerate(model_list):
+        print("\t\tBuilding graph for " + type(model).__name__, Functions.timestamp())
+        fig, ax = plt.subplots(1, 1, figsize=(5, 5))
+        Functions.correlation_values_graph([[datum[0][m], datum[1][0]] for datum in data], ax)
+        fig.suptitle("Correlation Graph for Expected Points,\n" + type(model).__name__)
+        fig.savefig("Figures/EP/Correlation Graph for Expected Points," + type(model).__name__, dpi=1000)
+        plt.close('all')
+        gc.collect()
+       
+    print("\tBuilding graphs by quarter", Functions.timestamp())
+    for m, model in enumerate(model_list):
+        print("\t\tBuilding graph for " + type(model).__name__, Functions.timestamp())
+        figs, axs = plt.subplots(2, 2, sharex=True, sharey=True, figsize=(10, 10))    
+        for qtr, ax in enumerate(figs.get_axes()):
+            Functions.correlation_values_graph([[datum[0][m], datum[1][0]] for datum in data if datum[1][1] == qtr + 1], ax)
+            ax.set_title(Functions.ordinals(qtr + 1))
+        figs.suptitle("Correlation Graph for Expected Points,\n" + type(model).__name__ + ", by quarter")
+        figs.savefig("Figures/EP/EP Correlation(" + type(model).__name__ + ", by quarter", dpi=1000)
+        plt.close('all')
+        gc.collect()
+       
+    print("\tBuilding graphs by down", Functions.timestamp())
+    for m, model in enumerate(model_list):
+        print("\t\tBuilding graph for " + type(model).__name__, Functions.timestamp())
+        figs, axs = plt.subplots(1, 3, sharex=True, sharey=True, figsize=(15, 5))    
+        for down, ax in enumerate(figs.get_axes()):
+            Functions.correlation_values_graph([[datum[0][m], datum[1][0]] for datum in data if datum[1][2] == down + 1], ax)
+            ax.set_title(Functions.ordinals(down + 1))
+        figs.suptitle("Correlation Graph for Expected Points,\n" + type(model).__name__ + ", by down")
+        figs.savefig("Figures/EP/EP Correlation(" + type(model).__name__ + ", by down", dpi=1000)
+        plt.close('all')
+        gc.collect()
+
+    print("\tBuilding graphs by Home/Away", Functions.timestamp())
+    for m, model in enumerate(model_list):
+        print("\t\tBuilding graph for " + type(model).__name__, Functions.timestamp())
+        figs, axs = plt.subplots(1, 2, sharex=True, sharey=True, figsize=(10, 5))
+        for home, ax in enumerate(figs.get_axes()):
+            Functions.correlation_values_graph([[datum[0][m], datum[1][0]] for datum in data if datum[1][3] == home], ax)
+            ax.set_title("Home" if home else "Away")
+        figs.suptitle("Probability Correlation Graph for Expected Points,\n" + type(model).__name__ + ", by Home/Away")
+        figs.savefig("Figures/EP/EP Correlation(" + type(model).__name__ + ", by Home-Away", dpi=1000)
+        plt.close('all')
+        gc.collect()
+
 def regression_teamseason_plots():
     '''
     Creates a bunch of graphs to show team-season EPA
@@ -754,4 +834,54 @@ def raw_teamseason_plots():
         fig.savefig("Figures/EP/Conference Rush EPA vs Pass EPA, Raw", dpi=1000)
         plt.close('all')
         gc.collect()
+    return None
+
+
+def EP_ensemble():
+    print("Fitting the ensemble model", Functions.timestamp())
+    
+    EP_data = []
+    for game in Globals.gamelist:
+        for play in game.playlist:
+            EP_data.append([play.DOWN, play.DISTANCE, play.YDLINE, play.next_score + str(play.next_score_is_off)])
+            play.EP_ensemble_list = []
+            play.EP_ensemble_values = []
+
+    outputlist = []
+    predict_data = []
+    for down in range(4):
+        for distance in range(111):
+            for yardline in range(111):
+                predict_data.append([down, distance, yardline])
+    predict_data = numpy.array(predict_data)
+
+    for lap in range(100):
+        for m, model in enumerate(EP_classification_models):
+            print("\tfitting model", (lap * len(EP_classification_models)) + m + 1, type(model).__name__, Functions.timestamp())
+            fit_data = random.choices(EP_data, k=len(EP_data))
+            fit_data_x = [x[:-1] for x in fit_data]
+            fit_data_y = [x[-1] for x in fit_data]
+            model.fit(fit_data_x, fit_data_y)
+            outputlist.append(model.predict_proba(predict_data))
+    outputlist = numpy.flip(numpy.array(outputlist), axis=1).tolist()
+    score_vals = numpy.array([Globals.score_values[score[0]].EP[1] * (1 if score[1] else -1) for score in Globals.alpha_scores])
+    for down in EP_ARRAY:
+        for distance in down:
+            for yardline in distance:
+                yardline.EP_ensemble_list = numpy.array([x.pop() for x in outputlist])
+                yardline.EP_ensemble_values = numpy.sort(numpy.sum(numpy.multiply(yardline.EP_ensemble_list, score_vals), axis=1))
+                yardline.EP_ensemble = numpy.array([yardline.EP_ensemble_values[int(len(yardline.EP_ensemble_values) * Globals.CONFIDENCE - 1)],
+                                                    numpy.mean(yardline.EP_ensemble_values),
+                                                    yardline.EP_ensemble_values[int(len(yardline.EP_ensemble_values) * (1 - Globals.CONFIDENCE))]])
+    for game in Globals.gamelist:
+        for play in game.playlist:
+            play.EP_ensemble_list = EP_ARRAY[play.DOWN][play.DISTANCE][play.YDLINE].EP_ensemble_list
+            play.EP_ensemble_values = EP_ARRAY[play.DOWN][play.DISTANCE][play.YDLINE].EP_ensemble_values
+            play.EP_ensemble = EP_ARRAY[play.DOWN][play.DISTANCE][play.YDLINE].EP_ensemble
+
+    return None
+
+
+def EP_ensemble_correlation_values():
+    pass
     return None

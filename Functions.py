@@ -10,10 +10,11 @@ import numpy
 import Globals
 import datetime
 import math
+import csv
 import matplotlib.pyplot as plt
 from sklearn.model_selection import KFold
 from matplotlib.offsetbox import OffsetImage, AnnotationBbox
-
+from difflib import SequenceMatcher
 start = datetime.datetime.now().timestamp()
 
 
@@ -334,3 +335,65 @@ def assign_from_list(outputlist, attribute):
     for game in Globals.gamelist:
         for play in game.playlist:
             setattr(play, attribute, [x.pop() for x in outputlist])
+
+
+def swap_fn(infile, swaps):
+    text = open(infile, "r")
+    for swap in swaps:
+        print(swap)
+        text = ''.join([i for i in text]).replace(swap[0], swap[1])
+    x = open(infile,"w", encoding='utf-8')
+    x.writelines(text)
+    x.close()
+    return None
+
+
+
+     
+def similar(a, b):
+    return SequenceMatcher(None, a, b).ratio()
+
+
+def find_matches(good_names, bad_names):
+    matched_names = []
+    print(len(bad_names))
+    for b, bad in enumerate(bad_names):
+        print(b)
+        if len(bad) > 5:
+            best_ratio = 0
+            best_ratio_name = ""
+            for good in good_names:
+                if len(good) >= len(bad):
+                    if SequenceMatcher(None, bad, good).ratio() > best_ratio:
+                        best_ratio = SequenceMatcher(None, bad, good).ratio()
+                        best_ratio_name = good
+            matched_names.append([bad, best_ratio_name, best_ratio])
+
+
+    matched_names.sort(key=lambda x: x[2], reverse=False)
+    with open("matches.csv", 'w') as myfile:
+        wr = csv.writer(myfile, dialect='excel')
+        wr.writerows(names_list_two)
+
+
+def get_names():
+    names_list = []
+    names_list_two = []
+
+    for game in Globals.gamelist:
+        for play in game.playlist:
+            for role in ["PASSER", "RECEIVER", "RUSHER", "KICKER", "RETURNER", "INTERCEPTER", "TACKLER_ONE", "TACKLER_TWO"]:  #, "INTERCEPTER", "TACKLER_ONE", "TACKLER_TWO", "RETURNER"]:
+                if getattr(play, role) is not None:
+                    names_list.append([getattr(play, role), play.playdesc, role])
+
+    for name in names_list:
+        for name_two in names_list_two:
+            if name[0] == name_two[0]:
+                break
+        else:
+            names_list_two.append(name)
+            print(len(names_list_two))
+           
+    with open("names.csv", 'w', newline='') as myfile:
+        wr = csv.writer(myfile, dialect='excel')
+        wr.writerows(names_list_two)

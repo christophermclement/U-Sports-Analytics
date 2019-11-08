@@ -36,7 +36,7 @@ class game():
         self.MULE = MULE  # Which data format is this from
         self.game_statement = statement  # The initial "vs. " statement
         # Grabs the Home and Away from the vs. statement
-        self.away_home=[self.game_statement[0:3], self.game_statement[8:11]]
+        self.away_home=[Globals.teams[self.game_statement[0:3]], Globals.teams[self.game_statement[8:11]]]
         self.H_WIN = None  # If the home team wins the game
         self.away_home_final = None  # Final score of the game
         self.LEAGUE = None  # Always "U Sports", but exists for future compatibility
@@ -74,28 +74,9 @@ class game():
         self.SEASON = self.game_date.year
         # Always U Sports, will get fancier if we include other leagues.
         self.LEAGUE = "U SPORTS"
-        # These are to determine the conference of a game
-        # These two conferences always have the same teams
-        CWUAA = ["MAN", "SKH", "REG", "ALB", "CGY", "UBC", "SFU"]
-        OUA = ["CAR", "OTT", "QUE", "TOR", "YRK", "MAC", "GUE", "WAT", "WLU", "WES", "WIN"]
 
-        # Because Bishop's changed conferences in 2016 we need to adapt
-        # Should this be a separate method?
-        if self.game_date.year < 2016:
-            RSEQ = ["BIS", "SHE", "MCG", "CON", "MON", "LAV"]
-            AUS = ["SMU", "SFX", "MTA", "ACA"]
-        else:
-            RSEQ = ["SHE", "MCG", "CON", "MON", "LAV"]
-            AUS = ["SMU", "SFX", "MTA", "ACA", "BIS"]
-        # If both are in the same conf we assign that conf, otherwise non-con
-        if all(team in CWUAA for team in self.away_home):
-            self.CONFERENCE = "CWUAA"
-        elif all(team in OUA for team in self.away_home):
-            self.CONFERENCE = "OUA"
-        elif all(team in RSEQ for team in self.away_home):
-            self.CONFERENCE = "RSEQ"
-        elif all(team in AUS for team in self.away_home):
-            self.CONFERENCE = "AUS"
+        if self.away_home[0].season_conferences[self.game_date.year] == self.away_home[1].season_conferences[self.game_date.year]:
+            self.CONFERENCE = self.away_home[0].season_conferences[self.game_date.year]
         else:
             self.CONFERENCE = "NONCON"
         return None
@@ -137,12 +118,11 @@ class game():
             # check for possession statements, but only in data formats 1 and 3
             if self.MULE == 1 or self.MULE == 3:
                 if "drive start" in row[1]:
-                    off = row[1][row[1].find("drive start") - 4:
-                                 row[1].find("drive start") - 1]
+                    off = Globals.teams[row[1][row[1].find("drive start") - 4:row[1].find("drive start") - 1]]
             elif self.MULE == 2:
                 if len(row[0]) == 3:
                     if row[0] not in ["1st", "2nd", "3rd", "4th"]:
-                        off = row[0]
+                        off = Globals.teams[row[0]]
             if off not in self.away_home:
                 print("POSSESSION ERROR", self.MULE, self.game_statement, row)
 
@@ -151,11 +131,17 @@ class game():
                     if "TIMEOUT" in row[1]:  # Checking for timeout statements
                         TO = row[1].find("TIMEOUT")
                         TOTEAM = row[1][(TO + 8):(TO + 11)]
-                        away_home_timeouts[self.away_home.index(TOTEAM)] -= 1
+                        if TOTEAM == self.away_home[0].name:
+                            away_home_timeouts[0] -= 1
+                        elif TOTEAM == self.away_home[1].name:
+                            away_home_timeouts[1] -= 1
                 elif self.MULE == 2:
                     if "TIMEOUT" in row[3]:
                         TOTEAM = row[3][row[3].index("TIMEOUT") + 8:row[3].index("TIMEOUT") + 11]
-                        away_home_timeouts[self.away_home.index(TOTEAM)] -= 1
+                        if TOTEAM == self.away_home[0].name:
+                            away_home_timeouts[0] -= 1
+                        elif TOTEAM == self.away_home[1].name:
+                            away_home_timeouts[1] -= 1
             except Exception as err:
                 print("TIMEOUT ERROR", self.MULE, self.game_statement, row)
                 print(err)

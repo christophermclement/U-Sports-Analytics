@@ -14,7 +14,7 @@ from Classes import KOClass
 from Classes import PuntClass
 from Classes import FGClass
 from Classes import EPClass
-from Classes import ThirdDownClass
+#from Classes import ThirdDownClass
 import Functions
 import WP
 import Globals
@@ -83,7 +83,7 @@ def iterate_scores():
     PRECISION = numpy.float(100.0)  # This is the measure of convergence of score values
     TEMP = numpy.float(0.0)  # Just a dummy to allow us to determine the change in value
     EPClass.EP_calculate()  # Need initial values for EP
-    while PRECISION:  # Can adjust precision as needed
+    while PRECISION > 10**-15:  # Can adjust precision as needed
         EPClass.EP_calculate()
         KOClass.KO_wipe()
         FGClass.FG_wipe()
@@ -173,13 +173,6 @@ def parser():
                 play.ODK_FN()  # Dependent on down, ydline, RP
                 play.FG_RSLT_FN()  # Dependent on ODK
                 play.GAIN_FN()  # Dependent on RP
-                play.TACKLER_FN()
-                play.PASSER_FN()  # Dependent on RP
-                play.RECEIVER_FN()  # Dependent on RP
-                play.RETURNER_FN()  # Dependent on ODK
-                play.KICKER_FN()
-                play.INTERCEPTER_FN()
-                play.RUSHER_FN()
             game.O_WIN_FN()  # No dependencies
             game.TIME_FN()  # No dependencies
             game.SCORING_PLAY_FN()
@@ -197,6 +190,15 @@ def parser():
                 play.KOSpread_FN()  # Dependent on ODK, KOGross, KONet
                 play.puntGross_FN()  # Dependent on ODK
                 play.puntSpread_FN()  # Dependent on ODK, puntNet, puntGross
+                play.TACKLER_FN()
+                play.PASSER_FN()  # Dependent on RP
+                play.RECEIVER_FN()  # Dependent on RP
+                play.RETURNER_FN()  # Dependent on ODK
+                play.KICKER_FN()
+                play.INTERCEPTER_FN()
+                play.RUSHER_FN()
+
+    print()
     return None 
 
 
@@ -267,9 +269,9 @@ def recalc_ep():
         FGClass.FG_boot()
         score_bootstrap()
         
-        #EPClass.EP_classification()
+        EPClass.EP_classification()
         EPClass.EP_regression()
-        
+        EPClass.EP_ensemble()
 
         for game in Globals.gamelist:
             game.EPA_FN()
@@ -280,6 +282,12 @@ def recalc_ep():
 
         pickle_models(EPClass.EP_classification_models, "Pickle/EP Models/")
         pickle_models(EPClass.EP_regression_models, "Pickle/EP Models/")
+        for m, model in enumerate(EPClass.EP_ensemble_models):
+            with open("Pickle/EP Models/Ensemble/"+ m.str() + type(model).__name__, 'wb') as file:
+                print("pickling EP ensemble mode", m, "of", len(EPClass.EP_ensemble_models), end='\r')
+                pickle.dump(model, file)
+
+        print()
         pickle_gamelist()
 
         with open("Pickle/score_values", 'wb') as file:
@@ -344,19 +352,26 @@ def redraw_plots():
     print("drawing plots")
     if DRAW_PLOTS:
         #PuntClass.P_PLOTS()
+        
         #P1DClass.P1D_PLOTS()
         #P1DClass.teamseason()
+        
         #FGClass.FG_PLOTS()
         #FGClass.FG_correlation()
+        
         #KOClass.KO_plots()
-        EPClass.EP_regression_correlation()
-        #EPClass.EP_classification_correlation()
-        #EPClass.EP_classification_values_correlation()
+        
+        #EPClass.EP_regression_correlation()  # Probably no longer needed, delete the function
+        EPClass.EP_values_correlation(EPClass.EP_classification_models, "EP_classification_values")
+        EPClass.EP_values_correlation(EPClass.EP_regression_models, "EP_regression_list")
+        EPClass.EP_classification_correlation()
+        #EPClass.EP_classification_values_correlation()  # Probably no longer needed, delete the function
         #EPClass.raw_EP_plots()
-        #EPClass.EP_classification_plots()
-        EPClass.EP_regression_plots()
-        EPClass.regression_teamseason_plots()
+        EPClass.EP_classification_plots()
+        #EPClass.EP_regression_plots()
+        #EPClass.regression_teamseason_plots()
         #EPClass.raw_teamseason_plots()
+        
         #WP.WP_correlation()
         #WP.WP_PLOTS()
         pass
@@ -370,11 +385,16 @@ def third_down():
     return None
 
 
+
 def create_GUI():
     GUI.create_main_menu()
     return None
 
-REPARSE_DATA = False
+
+
+
+
+REPARSE_DATA = True
 RECALCULATE_EP = False
 RECALCULATE_WP = False
 RECALCULATE_FG = True
@@ -383,8 +403,20 @@ CALCULATE_THIRD_DOWN = True
 RUN_GUI = True
 
 #create_GUI()
+print(1)
+Functions.swap_fn("Data/CIS Mule 01.csv", Globals.swaps)
+print(2)
+Functions.swap_fn("Data/CIS Mule 02.csv", Globals.swaps)
+print(3)
+Functions.swap_fn("Data/CIS Mule 03.csv", Globals.swaps)
+
+
 reparse()
+
+Functions.get_names()
+
 recalc_ep()
+EPClass.EP_ensemble()
 #recalc_wp()
 #recalc_fg()
 redraw_plots()
@@ -438,13 +470,10 @@ if this really justifies it, since the calls will basically
 all have to be manual anyway we might as well just have the list on paper or in
 a note somewhere.
 
-# TODO: There doesn't seem to be enough 2-pt conversion atTEMPts, so look into
-the ODK function, it's probably logging a lot of field goals as 2-pt atTEMPts.
-
 # TODO: Add docstrings for every method and function and generally improve the
 commenting
 
-# TODO: Why do I have a bunch of 0-5 at the 45???, 0-10 at the 5?
-We need checks for when dist>Ydline
+# TODO: Create a player class that will track pass attempts, receptions, rushes, the results thereof, tackles, kicks, etc.
+    self.counting_stats = {passes = 0, receptions = 0, tackles = 0, punts = 0, 
 '''
     
